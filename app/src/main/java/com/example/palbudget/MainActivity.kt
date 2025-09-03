@@ -11,6 +11,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -219,18 +220,16 @@ class MainActivity : ComponentActivity() {
         // Show loading toast
         Toast.makeText(this, "Analyzing ${imageBase64List.size} image(s)...", Toast.LENGTH_SHORT).show()
         
-        // This should be done in a proper coroutine scope, but for simplicity we'll use GlobalScope
-        kotlinx.coroutines.GlobalScope.launch {
+        // Use lifecycleScope for proper coroutine scope tied to activity lifecycle
+        lifecycleScope.launch {
             val result = openAIService.analyzeReceipts(imageBase64List)
             
-            // Show result on main thread
-            runOnUiThread {
-                if (result.success) {
-                    Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
-                } else {
-                    val errorMessage = result.error ?: "Unknown error occurred"
-                    Toast.makeText(this@MainActivity, "Analysis failed: $errorMessage", Toast.LENGTH_LONG).show()
-                }
+            // Show result (already on main thread with lifecycleScope)
+            if (result.success) {
+                Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
+            } else {
+                val errorMessage = result.error ?: "Unknown error occurred"
+                Toast.makeText(this@MainActivity, "Analysis failed: $errorMessage", Toast.LENGTH_LONG).show()
             }
         }
     }
