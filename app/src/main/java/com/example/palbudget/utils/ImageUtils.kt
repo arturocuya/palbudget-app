@@ -15,19 +15,24 @@ import java.util.Locale
 object ImageUtils {
     
     fun createImageUri(context: Context): Uri? {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-        val fileName = "IMG_${timeStamp}.jpg"
-        
-        val contentValues = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/PalBudget")
+        return try {
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val fileName = "IMG_${timeStamp}.jpg"
+            
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures")
+            }
+            
+            context.contentResolver.insert(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                contentValues
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("PalBudget", "Failed to create image URI", e)
+            null
         }
-        
-        return context.contentResolver.insert(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            contentValues
-        )
     }
     
     fun getImageDateFromUri(context: Context, uri: Uri): Long {
@@ -56,5 +61,18 @@ object ImageUtils {
             uriString = uri.toString(),
             dateCreated = getImageDateFromUri(context, uri)
         )
+    }
+    
+    fun markImageAsCompleted(context: Context, uri: Uri) {
+        try {
+            android.util.Log.d("PalBudget", "Marking image as completed: $uri")
+            val contentValues = ContentValues().apply {
+                put(MediaStore.Images.Media.IS_PENDING, 0) // Mark as completed
+            }
+            val updated = context.contentResolver.update(uri, contentValues, null, null)
+            android.util.Log.d("PalBudget", "Updated $updated rows for URI: $uri")
+        } catch (e: Exception) {
+            android.util.Log.e("PalBudget", "Could not mark image as completed: $uri", e)
+        }
     }
 }

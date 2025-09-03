@@ -104,20 +104,11 @@ class MainActivity : ComponentActivity() {
             ActivityResultContracts.TakePicture()
         ) { success ->
             if (success && tempCameraUri != null) {
-                // Take persistable URI permission for camera image
-                try {
-                    contentResolver.takePersistableUriPermission(
-                        tempCameraUri!!, 
-                        android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                } catch (e: SecurityException) {
-                Log.d("PalBudget", "Could not take persistable permission for camera image", e)
-                    Toast.makeText(this@MainActivity, "Could not save camera image permanently", Toast.LENGTH_LONG).show()
-                    }
-                
                 val imageInfo = ImageUtils.uriToImageInfo(this, tempCameraUri!!)
                 viewModel.addImages(listOf(imageInfo))
+                Toast.makeText(this, "Photo captured successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.w("PalBudget", "Camera capture failed - success: $success, uri: $tempCameraUri")
             }
             tempCameraUri = null
         }
@@ -159,6 +150,9 @@ class MainActivity : ComponentActivity() {
         uri?.let {
             tempCameraUri = it
             takePictureLauncher.launch(it)
+        } ?: run {
+            Log.e("PalBudget", "Failed to create camera URI")
+            Toast.makeText(this, "Failed to create camera URI", Toast.LENGTH_LONG).show()
         }
     }
     
