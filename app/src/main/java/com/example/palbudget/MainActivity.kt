@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
             if (success && tempCameraUri != null) {
                 val imageInfo = ImageUtils.uriToImageInfo(this, tempCameraUri!!)
                 viewModel.addImages(listOf(imageInfo))
-                Toast.makeText(this, "Photo captured successfully", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.photo_captured_successfully), Toast.LENGTH_SHORT).show()
             } else {
                 Log.w("PalBudget", "Camera capture failed - success: $success, uri: $tempCameraUri")
             }
@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
                         )
                     } catch (e: SecurityException) {
                         Log.d("PalBudget", "Could not take persistable permission for $uri", e)
-                        Toast.makeText(this@MainActivity, "Some images may not persist between app restarts", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, getString(R.string.some_images_may_not_persist), Toast.LENGTH_LONG).show()
                     }
                 }
                 
@@ -152,7 +152,7 @@ class MainActivity : ComponentActivity() {
             takePictureLauncher.launch(it)
         } ?: run {
             Log.e("PalBudget", "Failed to create camera URI")
-            Toast.makeText(this, "Failed to create camera URI", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.failed_to_create_camera_uri), Toast.LENGTH_LONG).show()
         }
     }
     
@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
     
     private fun removeAllImages() {
         viewModel.removeAllImages()
-        Toast.makeText(this, "All images removed", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.all_images_removed), Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -208,7 +208,7 @@ fun MainScreen(
                     showBottomSheet = true
                 }
             ) {
-                Text("📷")
+                Text("\uD83D\uDCF7")
             }
         }
     ) { innerPadding ->
@@ -228,16 +228,16 @@ fun MainScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "📷",
+                            text = "\uD83D\uDCF7",
                             style = MaterialTheme.typography.displayLarge
                         )
                         Text(
-                            text = "No images yet",
+                            text = LocalContext.current.getString(R.string.no_images_yet),
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            text = "Tap the camera button to add photos",
+                            text = LocalContext.current.getString(R.string.tap_camera_button_to_add),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                         )
@@ -290,7 +290,7 @@ fun ImageCard(imageInfo: com.example.palbudget.data.ImageInfo) {
     ) {
         AsyncImage(
             model = android.net.Uri.parse(imageInfo.uriString),
-            contentDescription = "Selected image",
+            contentDescription = LocalContext.current.getString(R.string.selected_image),
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(12.dp)),
@@ -333,7 +333,7 @@ fun ImageOptionsBottomSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Add photos",
+                text = LocalContext.current.getString(R.string.add_photos),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -354,7 +354,7 @@ fun ImageOptionsBottomSheet(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Take photo")
+                    Text(LocalContext.current.getString(R.string.take_photo))
                 }
             }
             
@@ -367,7 +367,7 @@ fun ImageOptionsBottomSheet(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Choose from gallery")
+                    Text(LocalContext.current.getString(R.string.choose_from_gallery))
                 }
             }
             
@@ -384,7 +384,7 @@ fun ImageOptionsBottomSheet(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Remove all images")
+                    Text(LocalContext.current.getString(R.string.remove_all_images_button))
                 }
             }
             
@@ -396,9 +396,9 @@ fun ImageOptionsBottomSheet(
     if (showRemoveAllDialog) {
         AlertDialog(
             onDismissRequest = { showRemoveAllDialog = false },
-            title = { Text("Remove all images?") },
+            title = { Text(LocalContext.current.getString(R.string.remove_all_images_title)) },
             text = { 
-                Text("This action will remove all image references from the app. The original image files will remain in your device's storage. This operation is irreversible.") 
+                Text(LocalContext.current.getString(R.string.remove_all_images_message)) 
             },
             confirmButton = {
                 Button(
@@ -407,14 +407,14 @@ fun ImageOptionsBottomSheet(
                         onRemoveAll()
                     }
                 ) {
-                    Text("Remove")
+                    Text(LocalContext.current.getString(R.string.remove))
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = { showRemoveAllDialog = false }
                 ) {
-                    Text("Cancel")
+                    Text(LocalContext.current.getString(R.string.cancel))
                 }
             }
         )

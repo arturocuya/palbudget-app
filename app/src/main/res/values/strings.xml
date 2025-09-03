@@ -1,3 +1,27 @@
 <resources>
     <string name="app_name">Pal Budget</string>
+    
+    <!-- Toast messages -->
+    <string name="photo_captured_successfully">Receipt captured successfully</string>
+    <string name="some_images_may_not_persist">Some receipts may not persist between app restarts</string>
+    <string name="failed_to_create_camera_uri">Failed to create camera URI</string>
+    <string name="all_images_removed">All receipts removed</string>
+    
+    <!-- UI Text -->
+    <string name="no_images_yet">No receipts yet</string>
+    <string name="tap_camera_button_to_add">Tap the camera button to add receipts</string>
+    <string name="selected_image">Selected receipt</string>
+    <string name="add_photos">Add receipts</string>
+    <string name="take_photo">Scan receipt</string>
+    <string name="choose_from_gallery">Choose from gallery</string>
+    
+    <!-- Camera emoji -->
+    <string name="camera_emoji">📷</string>
+    
+    <!-- Dialog strings -->
+    <string name="remove_all_images_title">Remove all receipts?</string>
+    <string name="remove_all_images_message">This action will remove all receipt references from the app. The original image files will remain in your device\'s storage. This operation is irreversible.</string>
+    <string name="remove_all_images_button">Remove all receipts</string>
+    <string name="remove">Remove</string>
+    <string name="cancel">Cancel</string>
 </resources>
