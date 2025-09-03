@@ -11,6 +11,9 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
@@ -54,6 +58,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -68,6 +73,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -104,7 +110,10 @@ class MainActivity : ComponentActivity() {
                     onLoadImages = { viewModel.loadImages(it) },
                     onTakePhoto = ::launchCamera,
                     onPickMultiple = ::launchMultipleImagePicker,
-                    onRemoveAll = ::removeAllImages
+                    onRemoveAll = ::removeAllImages,
+                    onRemoveSelected = { imageInfos ->
+                        imageInfos.forEach { viewModel.removeImage(it) }
+                    }
                 )
             }
         }
@@ -192,11 +201,19 @@ fun PalBudgetApp(
     onLoadImages: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
     onTakePhoto: () -> Unit,
     onPickMultiple: () -> Unit,
-    onRemoveAll: () -> Unit
+    onRemoveAll: () -> Unit,
+    onRemoveSelected: (List<com.example.palbudget.data.ImageInfo>) -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var currentPage by remember { mutableStateOf("receipts") }
+    var selectedImages by remember { mutableStateOf(setOf<String>()) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    
+    // Handle back button when images are selected
+    BackHandler(enabled = selectedImages.isNotEmpty()) {
+        selectedImages = setOf()
+    }
     
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -229,16 +246,45 @@ fun PalBudgetApp(
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("PalBudget") },
+                    title = { 
+                        if (selectedImages.isNotEmpty()) {
+                            Text("${selectedImages.size} selected")
+                        } else {
+                            Text("PalBudget")
+                        }
+                    },
                     navigationIcon = {
                         IconButton(
                             onClick = {
-                                scope.launch {
-                                    drawerState.open()
+                                if (selectedImages.isNotEmpty()) {
+                                    selectedImages = setOf()
+                                } else {
+                                    scope.launch {
+                                        drawerState.open()
+                                    }
                                 }
                             }
                         ) {
-                            Icon(Icons.Filled.Menu, contentDescription = "Open menu")
+                            if (selectedImages.isNotEmpty()) {
+                                Icon(Icons.Default.Menu, contentDescription = "Clear selection")
+                            } else {
+                                Icon(Icons.Filled.Menu, contentDescription = "Open menu")
+                            }
+                        }
+                    },
+                    actions = {
+                        if (selectedImages.isNotEmpty()) {
+                            IconButton(
+                                onClick = {
+                                    showDeleteConfirmation = true
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Filled.Delete,
+                                    contentDescription = "Delete selected images",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -251,13 +297,56 @@ fun PalBudgetApp(
                 when (currentPage) {
                     "receipts" -> ReceiptsScreen(
                         images = images,
+                        selectedImages = selectedImages,
                         onLoadImages = onLoadImages,
                         onTakePhoto = onTakePhoto,
                         onPickMultiple = onPickMultiple,
-                        onRemoveAll = onRemoveAll
+                        onRemoveAll = onRemoveAll,
+                        onRemoveSelected = onRemoveSelected,
+                        onImageSelected = { imageId, isSelected ->
+                            if (isSelected) {
+                                selectedImages = selectedImages + imageId
+                            } else {
+                                selectedImages = selectedImages - imageId
+                            }
+                        },
+                        isInSelectionMode = selectedImages.isNotEmpty()
                     )
                 }
             }
+        }
+        
+        // Delete confirmation dialog
+        if (showDeleteConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmation = false },
+                title = { 
+                    Text("Remove ${selectedImages.size} receipt${if (selectedImages.size == 1) "" else "s"}") 
+                },
+                text = { 
+                    Text(LocalContext.current.getString(R.string.remove_all_images_message)) 
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showDeleteConfirmation = false
+                            // Remove selected images
+                            val imagesToRemove = images.filter { selectedImages.contains(it.uriString) }
+                            onRemoveSelected(imagesToRemove)
+                            selectedImages = setOf()
+                        }
+                    ) {
+                        Text(LocalContext.current.getString(R.string.remove))
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showDeleteConfirmation = false }
+                    ) {
+                        Text(LocalContext.current.getString(R.string.cancel))
+                    }
+                }
+            )
         }
     }
 }
@@ -265,10 +354,14 @@ fun PalBudgetApp(
 @Composable
 fun ReceiptsScreen(
     images: List<com.example.palbudget.data.ImageInfo>,
+    selectedImages: Set<String>,
     onLoadImages: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
     onTakePhoto: () -> Unit,
     onPickMultiple: () -> Unit,
-    onRemoveAll: () -> Unit
+    onRemoveAll: () -> Unit,
+    onRemoveSelected: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
+    onImageSelected: (String, Boolean) -> Unit,
+    isInSelectionMode: Boolean = false
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -340,7 +433,14 @@ fun ReceiptsScreen(
                 ) {
                     val sortedImages = images.sortedByDescending { it.dateCreated }
                     items(sortedImages) { imageInfo ->
-                        ImageCard(imageInfo = imageInfo)
+                        ImageCard(
+                            imageInfo = imageInfo,
+                            isSelected = selectedImages.contains(imageInfo.uriString),
+                            isInSelectionMode = isInSelectionMode,
+                            onSelectionChanged = { isSelected ->
+                                onImageSelected(imageInfo.uriString, isSelected)
+                            }
+                        )
                     }
                 }
             }
@@ -366,8 +466,14 @@ fun ReceiptsScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ImageCard(imageInfo: com.example.palbudget.data.ImageInfo) {
+fun ImageCard(
+    imageInfo: com.example.palbudget.data.ImageInfo,
+    isSelected: Boolean = false,
+    isInSelectionMode: Boolean = false,
+    onSelectionChanged: (Boolean) -> Unit = {}
+) {
     Card(
         modifier = Modifier
             .aspectRatio(1f)
@@ -375,16 +481,63 @@ fun ImageCard(imageInfo: com.example.palbudget.data.ImageInfo) {
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        AsyncImage(
-            model = android.net.Uri.parse(imageInfo.uriString),
-            contentDescription = LocalContext.current.getString(R.string.selected_image),
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(12.dp)),
-            contentScale = ContentScale.Crop,
-            error = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_report_image),
-            placeholder = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_gallery)
-        )
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            AsyncImage(
+                model = android.net.Uri.parse(imageInfo.uriString),
+                contentDescription = LocalContext.current.getString(R.string.selected_image),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(12.dp))
+                    .combinedClickable(
+                        onClick = {
+                            if (isInSelectionMode) {
+                                onSelectionChanged(!isSelected)
+                            }
+                        },
+                        onLongClick = {
+                            if (!isInSelectionMode) {
+                                onSelectionChanged(!isSelected)
+                            }
+                        }
+                    ),
+                contentScale = ContentScale.Crop,
+                error = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_report_image),
+                placeholder = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_gallery)
+            )
+            
+            // Selection indicator
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                )
+                
+                // Selection checkmark
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(24.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.primary,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "✓",
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -514,10 +667,14 @@ fun ReceiptsScreenPreview() {
     PalBudgetTheme {
         ReceiptsScreen(
             images = emptyList(),
+            selectedImages = setOf(),
             onLoadImages = { },
             onTakePhoto = { },
             onPickMultiple = { },
-            onRemoveAll = { }
+            onRemoveAll = { },
+            onRemoveSelected = { },
+            onImageSelected = { _, _ -> },
+            isInSelectionMode = false
         )
     }
 }
