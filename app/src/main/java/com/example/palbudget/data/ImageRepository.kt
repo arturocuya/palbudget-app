@@ -31,7 +31,7 @@ class ImageRepository(private val context: Context) {
         
         return try {
             Json.decodeFromString<List<ImageInfo>>(json)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             emptyList()
         }
     }

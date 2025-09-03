@@ -16,6 +16,7 @@
 /.idea/inspectionProfiles/
 /.idea/ktlint-plugin.xml
 /.idea/migrations.xml
+/.idea/misc.xml
 /.idea/runConfigurations.xml
 .DS_Store
 /build

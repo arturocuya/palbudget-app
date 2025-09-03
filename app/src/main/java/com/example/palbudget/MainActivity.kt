@@ -38,6 +38,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -58,8 +60,8 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
@@ -209,6 +211,7 @@ fun PalBudgetApp(
     var currentPage by remember { mutableStateOf("receipts") }
     var selectedImages by remember { mutableStateOf(setOf<String>()) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     
     // Handle back button when images are selected
     BackHandler(enabled = selectedImages.isNotEmpty()) {
@@ -274,16 +277,35 @@ fun PalBudgetApp(
                     },
                     actions = {
                         if (selectedImages.isNotEmpty()) {
-                            IconButton(
-                                onClick = {
-                                    showDeleteConfirmation = true
+                            Box {
+                                IconButton(
+                                    onClick = { showOverflowMenu = true }
+                                ) {
+                                    Icon(
+                                        Icons.Filled.MoreVert,
+                                        contentDescription = "More options",
+                                        tint = MaterialTheme.colorScheme.onBackground
+                                    )
                                 }
-                            ) {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = "Delete selected images",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
+                                DropdownMenu(
+                                    expanded = showOverflowMenu,
+                                    onDismissRequest = { showOverflowMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Analyze") },
+                                        onClick = {
+                                            showOverflowMenu = false
+                                            // TODO: Add analyze functionality
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Remove") },
+                                        onClick = {
+                                            showOverflowMenu = false
+                                            showDeleteConfirmation = true
+                                        }
+                                    )
+                                }
                             }
                         }
                     },
