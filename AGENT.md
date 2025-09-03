@@ -5,3 +5,5 @@ instructions:
 - do not try to run gradle commands. i will do so when you request it.
 - don't be overly extensive when summarizing what you just did. just a small paragraph, then ask me what you need from me in another small paragraph.
 - all user facing text should be in strings.xml, except if the whole text is just emojis, those can be hardcoded.
+- this project is dark mode only.
+- do not use xml files for views. use compose only, with material3 elements.

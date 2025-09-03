@@ -33,17 +33,28 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
@@ -62,6 +73,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import com.example.palbudget.data.ImageRepository
 import com.example.palbudget.ui.theme.PalBudgetTheme
 import com.example.palbudget.utils.ImageUtils
@@ -87,10 +99,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             PalBudgetTheme {
-                MainScreen(
+                PalBudgetApp(
                     images = viewModel.images,
                     onLoadImages = { viewModel.loadImages(it) },
-                    onSaveImages = { /* handled in LaunchedEffect */ },
                     onTakePhoto = ::launchCamera,
                     onPickMultiple = ::launchMultipleImagePicker,
                     onRemoveAll = ::removeAllImages
@@ -174,11 +185,87 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(
+fun PalBudgetApp(
     images: List<com.example.palbudget.data.ImageInfo>,
     onLoadImages: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
-    onSaveImages: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
+    onTakePhoto: () -> Unit,
+    onPickMultiple: () -> Unit,
+    onRemoveAll: () -> Unit
+) {
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    var currentPage by remember { mutableStateOf("receipts") }
+    
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "PalBudget",
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                    
+                    NavigationDrawerItem(
+                        icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
+                        label = { Text("Receipts") },
+                        selected = currentPage == "receipts",
+                        onClick = {
+                            currentPage = "receipts"
+                            scope.launch {
+                                drawerState.close()
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("PalBudget") },
+                    navigationIcon = {
+                        IconButton(
+                            onClick = {
+                                scope.launch {
+                                    drawerState.open()
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Filled.Menu, contentDescription = "Open menu")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+            }
+        ) { paddingValues ->
+            Box(modifier = Modifier.padding(paddingValues)) {
+                when (currentPage) {
+                    "receipts" -> ReceiptsScreen(
+                        images = images,
+                        onLoadImages = onLoadImages,
+                        onTakePhoto = onTakePhoto,
+                        onPickMultiple = onPickMultiple,
+                        onRemoveAll = onRemoveAll
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ReceiptsScreen(
+    images: List<com.example.palbudget.data.ImageInfo>,
+    onLoadImages: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
     onTakePhoto: () -> Unit,
     onPickMultiple: () -> Unit,
     onRemoveAll: () -> Unit
@@ -423,12 +510,11 @@ fun ImageOptionsBottomSheet(
 
 @Preview(showBackground = true)
 @Composable
-fun MainScreenPreview() {
+fun ReceiptsScreenPreview() {
     PalBudgetTheme {
-        MainScreen(
+        ReceiptsScreen(
             images = emptyList(),
             onLoadImages = { },
-            onSaveImages = { },
             onTakePhoto = { },
             onPickMultiple = { },
             onRemoveAll = { }
