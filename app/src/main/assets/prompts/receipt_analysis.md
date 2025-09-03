@@ -10,10 +10,9 @@ For each image provided, you must:
    - **Items**: For each item purchased, extract the name (string) and price (integer in cents)
    - **Category**: Classify the receipt into one of: groceries, health, entertainment, restaurant
    - **Final price**: The total amount after taxes (integer in cents)
+   - **Date**: The date on the receipt in ISO 8601 format (YYYY-MM-DD). If the date is not visible, unclear, or missing, return null. Take extra consideration when analyzing this. Think really hard. Also, the usual format for dates is day/month/year
 
 3. **If it's not a receipt**, simply mark `is_receipt: false` and skip the analysis
-
-u like jazz? (eyes you)
 
 Please respond using the JSON schema format defined in the receipt_analysis_schema.json file. Each image should be analyzed in the order provided, with results indexed starting from 0.
 

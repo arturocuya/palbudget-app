@@ -47,9 +47,13 @@
               "final_price": {
                 "type": "integer",
                 "description": "Final total price after taxes in cents"
+              },
+              "date": {
+                "type": ["string", "null"],
+                "description": "Date of the receipt in ISO 8601 format (YYYY-MM-DD), or null if not visible/available"
               }
             },
-            "required": ["items", "category", "final_price"],
+            "required": ["items", "category", "final_price", "date"],
             "additionalProperties": false
           }
         },

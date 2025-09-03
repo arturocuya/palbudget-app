@@ -18,7 +18,8 @@ data class ReceiptItem(
 data class ReceiptAnalysis(
     val items: List<ReceiptItem>,
     val category: String,
-    val finalPrice: Int // in cents
+    val finalPrice: Int, // in cents
+    val date: String? // ISO 8601 format (YYYY-MM-DD) or null if not available
 )
 
 data class ImageAnalysis(
@@ -230,8 +231,13 @@ class OpenAIService(private val context: Context) {
         finalPriceProperty.put("type", "integer")
         analysisProperties.put("final_price", finalPriceProperty)
         
+        // date
+        val dateProperty = JSONObject()
+        dateProperty.put("type", JSONArray().put("string").put("null"))
+        analysisProperties.put("date", dateProperty)
+        
         analysisProperty.put("properties", analysisProperties)
-        analysisProperty.put("required", JSONArray().put("items").put("category").put("final_price"))
+        analysisProperty.put("required", JSONArray().put("items").put("category").put("final_price").put("date"))
         analysisProperty.put("additionalProperties", false)
         itemProperties.put("analysis", analysisProperty)
         
@@ -279,6 +285,7 @@ class OpenAIService(private val context: Context) {
                     val itemsArray = analysisObj.getJSONArray("items")
                     val category = analysisObj.getString("category")
                     val finalPrice = analysisObj.getInt("final_price")
+                    val date = if (analysisObj.isNull("date")) null else analysisObj.getString("date")
                     
                     val items = mutableListOf<ReceiptItem>()
                     for (j in 0 until itemsArray.length()) {
@@ -292,7 +299,8 @@ class OpenAIService(private val context: Context) {
                     ReceiptAnalysis(
                         items = items,
                         category = category,
-                        finalPrice = finalPrice
+                        finalPrice = finalPrice,
+                        date = date
                     )
                 } else {
                     null
@@ -321,6 +329,7 @@ class OpenAIService(private val context: Context) {
                 Log.d(TAG, "  Is Receipt: $isReceipt")
                 if (analysis != null) {
                     Log.d(TAG, "  Category: ${analysis.category}")
+                    Log.d(TAG, "  Date: ${analysis.date ?: "Not available"}")
                     Log.d(TAG, "  Final Price: $${analysis.finalPrice / 100.0}")
                     Log.d(TAG, "  Items (${analysis.items.size}):")
                     analysis.items.forEachIndexed { itemIndex, item ->

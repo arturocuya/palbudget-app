@@ -248,6 +248,7 @@ class MainActivity : ComponentActivity() {
             receipts.forEach { result ->
                 result.analysis?.let { analysis ->
                     summary.append("• ${analysis.category.uppercase()}: $${analysis.finalPrice / 100.0}\n")
+                    summary.append("  Date: ${analysis.date ?: "Not available"}\n")
                     summary.append("  ${analysis.items.size} item(s)\n")
                 }
             }
