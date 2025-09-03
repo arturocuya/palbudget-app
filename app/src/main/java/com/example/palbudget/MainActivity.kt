@@ -27,7 +27,10 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +42,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -88,7 +92,8 @@ class MainActivity : ComponentActivity() {
                     onLoadImages = { viewModel.loadImages(it) },
                     onSaveImages = { /* handled in LaunchedEffect */ },
                     onTakePhoto = ::launchCamera,
-                    onPickMultiple = ::launchMultipleImagePicker
+                    onPickMultiple = ::launchMultipleImagePicker,
+                    onRemoveAll = ::removeAllImages
                 )
             }
         }
@@ -168,6 +173,11 @@ class MainActivity : ComponentActivity() {
             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
         )
     }
+    
+    private fun removeAllImages() {
+        viewModel.removeAllImages()
+        Toast.makeText(this, "All images removed", Toast.LENGTH_SHORT).show()
+    }
 }
 
 @Composable
@@ -176,7 +186,8 @@ fun MainScreen(
     onLoadImages: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
     onSaveImages: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
     onTakePhoto: () -> Unit,
-    onPickMultiple: () -> Unit
+    onPickMultiple: () -> Unit,
+    onRemoveAll: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -265,6 +276,10 @@ fun MainScreen(
             onPickMultiple = {
                 showBottomSheet = false
                 onPickMultiple()
+            },
+            onRemoveAll = {
+                showBottomSheet = false
+                onRemoveAll()
             }
         )
     }
@@ -297,10 +312,12 @@ fun ImageCard(imageInfo: com.example.palbudget.data.ImageInfo) {
 fun ImageOptionsBottomSheet(
     onDismiss: () -> Unit,
     onTakePhoto: () -> Unit,
-    onPickMultiple: () -> Unit
+    onPickMultiple: () -> Unit,
+    onRemoveAll: () -> Unit
 ) {
     val bottomSheetState = rememberModalBottomSheetState()
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
+    var showRemoveAllDialog by remember { mutableStateOf(false) }
     
     // Auto-launch camera when permission is granted
     LaunchedEffect(cameraPermissionState.status.isGranted) {
@@ -343,13 +360,7 @@ fun ImageOptionsBottomSheet(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("📷")
-                    Text(
-                        if (cameraPermissionState.status.isGranted) 
-                            "Take photo" 
-                        else 
-                            "Allow camera & take photo"
-                    )
+                    Text("Take photo")
                 }
             }
             
@@ -362,13 +373,57 @@ fun ImageOptionsBottomSheet(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("🖼️")
                     Text("Choose from gallery")
+                }
+            }
+            
+            // Remove All Images
+            OutlinedButton(
+                onClick = { showRemoveAllDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
+                )
+            ) {
+                Row(
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Remove all images")
                 }
             }
             
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+    
+    // Confirmation Dialog for Remove All
+    if (showRemoveAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showRemoveAllDialog = false },
+            title = { Text("Remove all images?") },
+            text = { 
+                Text("This action will remove all image references from the app. The original image files will remain in your device's storage. This operation is irreversible.") 
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showRemoveAllDialog = false
+                        onRemoveAll()
+                    }
+                ) {
+                    Text("Remove")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showRemoveAllDialog = false }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -381,7 +436,8 @@ fun MainScreenPreview() {
             onLoadImages = { },
             onSaveImages = { },
             onTakePhoto = { },
-            onPickMultiple = { }
+            onPickMultiple = { },
+            onRemoveAll = { }
         )
     }
 }
