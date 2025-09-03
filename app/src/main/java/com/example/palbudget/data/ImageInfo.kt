@@ -4,6 +4,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ImageInfo(
-    val uriString: String,
+    val uri: String,
     val dateCreated: Long
 )

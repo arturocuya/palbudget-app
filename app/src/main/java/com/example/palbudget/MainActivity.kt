@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -83,10 +82,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.example.palbudget.data.ImageRepository
+import com.example.palbudget.service.OpenAIService
 import com.example.palbudget.ui.theme.PalBudgetTheme
 import com.example.palbudget.utils.ImageUtils
 import com.example.palbudget.viewmodel.ImageViewModel
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val viewModel: ImageViewModel by viewModels()
@@ -115,7 +114,8 @@ class MainActivity : ComponentActivity() {
                     onRemoveAll = ::removeAllImages,
                     onRemoveSelected = { imageInfos ->
                         imageInfos.forEach { viewModel.removeImage(it) }
-                    }
+                    },
+                    onAnalyzeSelected = ::analyzeSelectedImages
                 )
             }
         }
@@ -194,6 +194,46 @@ class MainActivity : ComponentActivity() {
         viewModel.removeAllImages()
         Toast.makeText(this, getString(R.string.all_images_removed), Toast.LENGTH_SHORT).show()
     }
+    
+    private fun analyzeSelectedImages(selectedImagesUris: Set<String>) {
+        val selectedImages = viewModel.images.filter { selectedImagesUris.contains(it.uri) }
+        
+        if (selectedImages.isEmpty()) {
+            Toast.makeText(this, "No images selected for analysis", Toast.LENGTH_LONG).show()
+            return
+        }
+        
+        // Convert image URIs to base64 format
+        val imageBase64List = selectedImages.mapNotNull { imageInfo ->
+            ImageUtils.uriToBase64(this, Uri.parse(imageInfo.uri))
+        }
+        
+        // Launch coroutine to perform analysis
+        val openAIService = OpenAIService(this)
+        
+        if (imageBase64List.isEmpty()) {
+            Toast.makeText(this, "Failed to convert images to base64", Toast.LENGTH_LONG).show()
+            return
+        }
+        
+        // Show loading toast
+        Toast.makeText(this, "Analyzing ${imageBase64List.size} image(s)...", Toast.LENGTH_SHORT).show()
+        
+        // This should be done in a proper coroutine scope, but for simplicity we'll use GlobalScope
+        kotlinx.coroutines.GlobalScope.launch {
+            val result = openAIService.analyzeReceipts(imageBase64List)
+            
+            // Show result on main thread
+            runOnUiThread {
+                if (result.success) {
+                    Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
+                } else {
+                    val errorMessage = result.error ?: "Unknown error occurred"
+                    Toast.makeText(this@MainActivity, "Analysis failed: $errorMessage", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -204,7 +244,8 @@ fun PalBudgetApp(
     onTakePhoto: () -> Unit,
     onPickMultiple: () -> Unit,
     onRemoveAll: () -> Unit,
-    onRemoveSelected: (List<com.example.palbudget.data.ImageInfo>) -> Unit
+    onRemoveSelected: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
+    onAnalyzeSelected: (Set<String>) -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -295,7 +336,7 @@ fun PalBudgetApp(
                                         text = { Text("Analyze") },
                                         onClick = {
                                             showOverflowMenu = false
-                                            // TODO: Add analyze functionality
+                                            onAnalyzeSelected(selectedImages)
                                         }
                                     )
                                     DropdownMenuItem(
@@ -353,7 +394,7 @@ fun PalBudgetApp(
                         onClick = {
                             showDeleteConfirmation = false
                             // Remove selected images
-                            val imagesToRemove = images.filter { selectedImages.contains(it.uriString) }
+                            val imagesToRemove = images.filter { selectedImages.contains(it.uri) }
                             onRemoveSelected(imagesToRemove)
                             selectedImages = setOf()
                         }
@@ -457,10 +498,10 @@ fun ReceiptsScreen(
                     items(sortedImages) { imageInfo ->
                         ImageCard(
                             imageInfo = imageInfo,
-                            isSelected = selectedImages.contains(imageInfo.uriString),
+                            isSelected = selectedImages.contains(imageInfo.uri),
                             isInSelectionMode = isInSelectionMode,
                             onSelectionChanged = { isSelected ->
-                                onImageSelected(imageInfo.uriString, isSelected)
+                                onImageSelected(imageInfo.uri, isSelected)
                             }
                         )
                     }
@@ -507,7 +548,7 @@ fun ImageCard(
             modifier = Modifier.fillMaxSize()
         ) {
             AsyncImage(
-                model = android.net.Uri.parse(imageInfo.uriString),
+                model = android.net.Uri.parse(imageInfo.uri),
                 contentDescription = LocalContext.current.getString(R.string.selected_image),
                 modifier = Modifier
                     .fillMaxSize()

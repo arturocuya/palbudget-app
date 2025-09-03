@@ -4,7 +4,9 @@ import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
+import android.util.Base64
 import com.example.palbudget.data.ImageInfo
+import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -55,7 +57,7 @@ object ImageUtils {
     
     fun uriToImageInfo(context: Context, uri: Uri): ImageInfo {
         return ImageInfo(
-            uriString = uri.toString(),
+            uri = uri.toString(),
             dateCreated = getImageDateFromUri(context, uri)
         )
     }
@@ -70,6 +72,18 @@ object ImageUtils {
             android.util.Log.d("PalBudget", "Updated $updated rows for URI: $uri")
         } catch (e: Exception) {
             android.util.Log.e("PalBudget", "Could not mark image as completed: $uri", e)
+        }
+    }
+    
+    fun uriToBase64(context: Context, uri: Uri): String? {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                val bytes = inputStream.readBytes()
+                "data:image/jpeg;base64,${Base64.encodeToString(bytes, Base64.NO_WRAP)}"
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("PalBudget", "Failed to convert URI to base64: $uri", e)
+            null
         }
     }
 }
