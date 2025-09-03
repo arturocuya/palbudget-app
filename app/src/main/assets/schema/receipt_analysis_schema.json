@@ -1,0 +1,63 @@
+{
+  "type": "object",
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "image_index": {
+            "type": "integer",
+            "description": "Index of the image being analyzed (0-based)"
+          },
+          "image_uri": {
+            "type": "string",
+            "description": "The URI of the image being analyzed"
+          },
+          "is_receipt": {
+            "type": "boolean",
+            "description": "Whether the image contains a receipt"
+          },
+          "analysis": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "description": "Name of the item purchased"
+                    },
+                    "price": {
+                      "type": "integer",
+                      "description": "Price of the item in cents"
+                    }
+                  },
+                  "required": ["name", "price"],
+                  "additionalProperties": false
+                }
+              },
+              "category": {
+                "type": "string",
+                "enum": ["groceries", "health", "entertainment", "restaurant"],
+                "description": "Category of the receipt"
+              },
+              "final_price": {
+                "type": "integer",
+                "description": "Final total price after taxes in cents"
+              }
+            },
+            "required": ["items", "category", "final_price"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["image_index", "image_uri", "is_receipt"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["results"],
+  "additionalProperties": false
+}

@@ -83,10 +83,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import com.example.palbudget.data.ImageRepository
+import com.example.palbudget.service.ImageAnalysis
 import com.example.palbudget.service.OpenAIService
 import com.example.palbudget.ui.theme.PalBudgetTheme
 import com.example.palbudget.utils.ImageUtils
 import com.example.palbudget.viewmodel.ImageViewModel
+import androidx.core.net.toUri
 
 class MainActivity : ComponentActivity() {
     private val viewModel: ImageViewModel by viewModels()
@@ -178,13 +180,7 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, getString(R.string.failed_to_create_camera_uri), Toast.LENGTH_LONG).show()
         }
     }
-    
-    private fun launchSingleImagePicker() {
-        pickSingleImageLauncher.launch(
-            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-        )
-    }
-    
+
     private fun launchMultipleImagePicker() {
         pickMultipleImagesLauncher.launch(
             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -204,6 +200,9 @@ class MainActivity : ComponentActivity() {
             return
         }
         
+        // Get original URIs
+        val originalUris = selectedImages.map { it.uri }
+        
         // Convert image URIs to base64 format
         val imageBase64List = selectedImages.mapNotNull { imageInfo ->
             ImageUtils.uriToBase64(this, Uri.parse(imageInfo.uri))
@@ -222,16 +221,43 @@ class MainActivity : ComponentActivity() {
         
         // Use lifecycleScope for proper coroutine scope tied to activity lifecycle
         lifecycleScope.launch {
-            val result = openAIService.analyzeReceipts(imageBase64List)
+            val result = openAIService.analyzeReceipts(imageBase64List, originalUris)
             
             // Show result (already on main thread with lifecycleScope)
             if (result.success) {
-                Toast.makeText(this@MainActivity, result.message, Toast.LENGTH_LONG).show()
+                val summary = buildAnalysisSummary(result.results)
+                Toast.makeText(this@MainActivity, summary, Toast.LENGTH_LONG).show()
             } else {
                 val errorMessage = result.error ?: "Unknown error occurred"
                 Toast.makeText(this@MainActivity, "Analysis failed: $errorMessage", Toast.LENGTH_LONG).show()
             }
         }
+    }
+    
+    private fun buildAnalysisSummary(results: List<ImageAnalysis>): String {
+        val receipts = results.filter { it.isReceipt }
+        val nonReceipts = results.filter { !it.isReceipt }
+        
+        val summary = StringBuilder()
+        
+        if (receipts.isEmpty() && nonReceipts.isNotEmpty()) {
+            summary.append("No receipts found in ${nonReceipts.size} image(s)")
+        } else if (receipts.isNotEmpty()) {
+            summary.append("Found ${receipts.size} receipt(s):\n\n")
+            
+            receipts.forEach { result ->
+                result.analysis?.let { analysis ->
+                    summary.append("• ${analysis.category.uppercase()}: $${analysis.finalPrice / 100.0}\n")
+                    summary.append("  ${analysis.items.size} item(s)\n")
+                }
+            }
+            
+            if (nonReceipts.isNotEmpty()) {
+                summary.append("\n${nonReceipts.size} image(s) were not receipts")
+            }
+        }
+        
+        return summary.toString()
     }
 }
 
