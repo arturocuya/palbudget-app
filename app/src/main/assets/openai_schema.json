@@ -1,0 +1,59 @@
+{
+  "type": "object",
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "image_index": {
+            "type": "integer"
+          },
+          "image_uri": {
+            "type": "string"
+          },
+          "is_receipt": {
+            "type": "boolean"
+          },
+          "analysis": {
+            "type": ["object", "null"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "price": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": ["name", "price"],
+                  "additionalProperties": false
+                }
+              },
+              "category": {
+                "type": "string",
+                "enum": ["groceries", "health", "entertainment", "restaurant"]
+              },
+              "final_price": {
+                "type": "integer"
+              },
+              "date": {
+                "type": ["string", "null"]
+              }
+            },
+            "required": ["items", "category", "final_price", "date"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["image_index", "image_uri", "is_receipt", "analysis"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["results"],
+  "additionalProperties": false
+}

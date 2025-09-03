@@ -2,10 +2,13 @@ package com.example.palbudget.service
 
 import android.content.Context
 import android.util.Log
+import com.example.palbudget.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -44,6 +47,13 @@ class OpenAIService(private val context: Context) {
         private const val API_KEY = ""
     }
     
+    @OptIn(ExperimentalSerializationApi::class)
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+        explicitNulls = false
+    }
+    
     suspend fun analyzeReceipts(imageBase64List: List<String>, originalUris: List<String>): AnalysisResult = withContext(Dispatchers.IO) {
         try {
             if (API_KEY.isEmpty()) {
@@ -56,7 +66,17 @@ class OpenAIService(private val context: Context) {
             
             val basePrompt = loadPromptFromAssets()
             val fullPrompt = appendImageUrisToPrompt(basePrompt, originalUris)
-            val requestBody = buildRequestBody(fullPrompt, imageBase64List)
+            val requestBodyResult = buildRequestBody(fullPrompt, imageBase64List)
+            
+            if (requestBodyResult.isFailure) {
+                return@withContext AnalysisResult(
+                    success = false,
+                    results = emptyList(),
+                    error = "Request serialization error: ${requestBodyResult.exceptionOrNull()?.message}"
+                )
+            }
+            
+            val requestBody = requestBodyResult.getOrThrow()
             
             Log.d(TAG, "Processing ${originalUris.size} images:")
             originalUris.forEachIndexed { index, uri ->
@@ -132,201 +152,100 @@ class OpenAIService(private val context: Context) {
         return "$basePrompt\n$uriList"
     }
     
-    private fun buildRequestBody(prompt: String, imageUris: List<String>): String {
-        val messages = JSONArray()
-        val userMessage = JSONObject()
-        val content = JSONArray()
-        
-        // Add text prompt
-        content.put(JSONObject().apply {
-            put("type", "text")
-            put("text", prompt)
-        })
-        
-        // Add images (assuming they are base64 encoded)
-        imageUris.forEach { imageUri ->
-            content.put(JSONObject().apply {
-                put("type", "image_url")
-                put("image_url", JSONObject().apply {
-                    put("url", imageUri) // This should be base64 data URI or URL
-                })
-            })
+    private fun buildRequestBody(prompt: String, imageUris: List<String>): Result<String> {
+        return try {
+            val content = buildList {
+                // Add text prompt
+                add(Content(type = "text", text = prompt))
+                
+                // Add images
+                imageUris.forEach { imageUri ->
+                    add(Content(type = "image_url", imageUrl = ImageUrl(url = imageUri)))
+                }
+            }
+            
+            val messages = listOf(
+                Message(role = "user", content = content)
+            )
+            
+            val responseFormat = createResponseFormat()
+            val request = OpenAIRequest(messages = messages, responseFormat = responseFormat)
+            
+            Result.success(json.encodeToString(request))
+        } catch (e: SerializationException) {
+            Log.e(TAG, "Failed to serialize request", e)
+            Result.failure(e)
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error building request", e)
+            Result.failure(e)
         }
+    }
+    
+    private fun createResponseFormat(): ResponseFormat {
+        val schemaString = loadSchemaFromAssets()
+        val schemaElement = json.parseToJsonElement(schemaString)
         
-        userMessage.put("role", "user")
-        userMessage.put("content", content)
-        messages.put(userMessage)
-        
-        val requestBody = JSONObject()
-        requestBody.put("model", "gpt-4o")
-        requestBody.put("temperature", 0)
-        requestBody.put("messages", messages)
-        
-        // Structured output schema
-        val responseFormat = JSONObject()
-        responseFormat.put("type", "json_schema")
-        
-        val jsonSchema = JSONObject()
-        jsonSchema.put("name", "ReceiptAnalysisResponse")
-        jsonSchema.put("strict", true)
-        
-        val schema = JSONObject()
-        schema.put("type", "object")
-        
-        val properties = JSONObject()
-        val resultsProperty = JSONObject()
-        resultsProperty.put("type", "array")
-        
-        val itemsSchema = JSONObject()
-        itemsSchema.put("type", "object")
-        
-        val itemProperties = JSONObject()
-        // image_index
-        val imageIndexProperty = JSONObject()
-        imageIndexProperty.put("type", "integer")
-        itemProperties.put("image_index", imageIndexProperty)
-        
-        // image_uri
-        val imageUriProperty = JSONObject()
-        imageUriProperty.put("type", "string")
-        itemProperties.put("image_uri", imageUriProperty)
-        
-        // is_receipt
-        val isReceiptProperty = JSONObject()
-        isReceiptProperty.put("type", "boolean")
-        itemProperties.put("is_receipt", isReceiptProperty)
-        
-        // analysis (required field, but can be null when is_receipt is false)
-        val analysisProperty = JSONObject()
-        analysisProperty.put("type", JSONArray().put("object").put("null"))
-        
-        val analysisProperties = JSONObject()
-        
-        // items array
-        val itemsArrayProperty = JSONObject()
-        itemsArrayProperty.put("type", "array")
-        val itemObjectSchema = JSONObject()
-        itemObjectSchema.put("type", "object")
-        val itemObjectProperties = JSONObject()
-        val nameProperty = JSONObject()
-        nameProperty.put("type", "string")
-        val priceProperty = JSONObject()
-        priceProperty.put("type", "integer")
-        itemObjectProperties.put("name", nameProperty)
-        itemObjectProperties.put("price", priceProperty)
-        itemObjectSchema.put("properties", itemObjectProperties)
-        itemObjectSchema.put("required", JSONArray().put("name").put("price"))
-        itemObjectSchema.put("additionalProperties", false)
-        itemsArrayProperty.put("items", itemObjectSchema)
-        analysisProperties.put("items", itemsArrayProperty)
-        
-        // category
-        val categoryProperty = JSONObject()
-        categoryProperty.put("type", "string")
-        categoryProperty.put("enum", JSONArray().put("groceries").put("health").put("entertainment").put("restaurant"))
-        analysisProperties.put("category", categoryProperty)
-        
-        // final_price
-        val finalPriceProperty = JSONObject()
-        finalPriceProperty.put("type", "integer")
-        analysisProperties.put("final_price", finalPriceProperty)
-        
-        // date
-        val dateProperty = JSONObject()
-        dateProperty.put("type", JSONArray().put("string").put("null"))
-        analysisProperties.put("date", dateProperty)
-        
-        analysisProperty.put("properties", analysisProperties)
-        analysisProperty.put("required", JSONArray().put("items").put("category").put("final_price").put("date"))
-        analysisProperty.put("additionalProperties", false)
-        itemProperties.put("analysis", analysisProperty)
-        
-        itemsSchema.put("properties", itemProperties)
-        itemsSchema.put("required", JSONArray().put("image_index").put("image_uri").put("is_receipt").put("analysis"))
-        itemsSchema.put("additionalProperties", false)
-        
-        resultsProperty.put("items", itemsSchema)
-        properties.put("results", resultsProperty)
-        
-        schema.put("properties", properties)
-        schema.put("required", JSONArray().put("results"))
-        schema.put("additionalProperties", false)
-        
-        jsonSchema.put("schema", schema)
-        responseFormat.put("json_schema", jsonSchema)
-        
-        requestBody.put("response_format", responseFormat)
-        
-        return requestBody.toString()
+        return ResponseFormat(
+            jsonSchema = JsonSchemaWrapper(schema = schemaElement)
+        )
+    }
+    
+    private fun loadSchemaFromAssets(): String {
+        return try {
+            context.assets.open("openai_schema.json").bufferedReader().readText()
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not load schema from assets", e)
+            throw e
+        }
     }
     
     private fun parseSuccessResponse(responseBody: String, originalImageUris: List<String>): AnalysisResult {
         return try {
-            val response = JSONObject(responseBody)
-            val choices = response.getJSONArray("choices")
-            val firstChoice = choices.getJSONObject(0)
-            val message = firstChoice.getJSONObject("message")
-            val contentString = message.getString("content")
+            // Parse OpenAI response
+            val response = json.decodeFromString<OpenAIResponse>(responseBody)
+            val contentString = response.choices.firstOrNull()?.message?.content
+                ?: return AnalysisResult(
+                    success = false,
+                    results = emptyList(),
+                    error = "No content in response"
+                )
             
-            // Parse the structured JSON response
-            val structuredResponse = JSONObject(contentString)
-            val resultsArray = structuredResponse.getJSONArray("results")
+            // Parse structured response content
+            val structuredResponse = json.decodeFromString<StructuredResponse>(contentString)
             
-            val imageAnalyses = mutableListOf<ImageAnalysis>()
-            
-            for (i in 0 until resultsArray.length()) {
-                val result = resultsArray.getJSONObject(i)
-                val imageIndex = result.getInt("image_index")
-                val imageUri = result.getString("image_uri")
-                val isReceipt = result.getBoolean("is_receipt")
-                
-                val analysis = if (isReceipt && result.has("analysis") && !result.isNull("analysis")) {
-                    val analysisObj = result.getJSONObject("analysis")
-                    val itemsArray = analysisObj.getJSONArray("items")
-                    val category = analysisObj.getString("category")
-                    val finalPrice = analysisObj.getInt("final_price")
-                    val date = if (analysisObj.isNull("date")) null else analysisObj.getString("date")
-                    
-                    val items = mutableListOf<ReceiptItem>()
-                    for (j in 0 until itemsArray.length()) {
-                        val item = itemsArray.getJSONObject(j)
-                        items.add(ReceiptItem(
-                            name = item.getString("name"),
-                            price = item.getInt("price")
-                        ))
-                    }
-                    
+            val imageAnalyses = structuredResponse.results.map { result ->
+                val analysis = result.analysis?.let { analysisResponse ->
                     ReceiptAnalysis(
-                        items = items,
-                        category = category,
-                        finalPrice = finalPrice,
-                        date = date
+                        items = analysisResponse.items.map { item ->
+                            ReceiptItem(name = item.name, price = item.price)
+                        },
+                        category = analysisResponse.category,
+                        finalPrice = analysisResponse.finalPrice,
+                        date = analysisResponse.date
                     )
-                } else {
-                    null
                 }
                 
                 val imageAnalysis = ImageAnalysis(
-                    imageIndex = imageIndex,
-                    imageUri = imageUri,
-                    isReceipt = isReceipt,
+                    imageIndex = result.imageIndex,
+                    imageUri = result.imageUri,
+                    isReceipt = result.isReceipt,
                     analysis = analysis
                 )
                 
                 // Log analysis for each image with its URI
-                val expectedId = if (imageIndex < originalImageUris.size) {
-                    val originalUri = originalImageUris[imageIndex]
-                    "IMG_${imageIndex}_${originalUri.hashCode().toString().takeLast(8)}"
+                val expectedId = if (result.imageIndex < originalImageUris.size) {
+                    val originalUri = originalImageUris[result.imageIndex]
+                    "IMG_${result.imageIndex}_${originalUri.hashCode().toString().takeLast(8)}"
                 } else {
                     "Unknown"
                 }
                 
-                Log.d(TAG, "Analysis for Image $imageIndex:")
+                Log.d(TAG, "Analysis for Image ${result.imageIndex}:")
                 Log.d(TAG, "  Expected ID: $expectedId")
-                Log.d(TAG, "  Returned ID: $imageUri")
-                Log.d(TAG, "  ID Match: ${expectedId == imageUri}")
-                Log.d(TAG, "  Full URI: ${if (imageIndex < originalImageUris.size) originalImageUris[imageIndex] else "Index out of bounds"}")
-                Log.d(TAG, "  Is Receipt: $isReceipt")
+                Log.d(TAG, "  Returned ID: ${result.imageUri}")
+                Log.d(TAG, "  ID Match: ${expectedId == result.imageUri}")
+                Log.d(TAG, "  Full URI: ${if (result.imageIndex < originalImageUris.size) originalImageUris[result.imageIndex] else "Index out of bounds"}")
+                Log.d(TAG, "  Is Receipt: ${result.isReceipt}")
                 if (analysis != null) {
                     Log.d(TAG, "  Category: ${analysis.category}")
                     Log.d(TAG, "  Date: ${analysis.date ?: "Not available"}")
@@ -339,12 +258,19 @@ class OpenAIService(private val context: Context) {
                     Log.d(TAG, "  No analysis (not a receipt)")
                 }
                 
-                imageAnalyses.add(imageAnalysis)
+                imageAnalysis
             }
             
             AnalysisResult(
                 success = true,
                 results = imageAnalyses
+            )
+        } catch (e: SerializationException) {
+            Log.e(TAG, "Failed to deserialize response", e)
+            AnalysisResult(
+                success = false,
+                results = emptyList(),
+                error = "Response deserialization error: ${e.message}"
             )
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse response", e)
