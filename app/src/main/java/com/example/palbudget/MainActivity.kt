@@ -37,7 +37,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,10 +44,9 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -56,7 +54,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -93,19 +90,19 @@ import androidx.core.net.toUri
 class MainActivity : ComponentActivity() {
     private val viewModel: ImageViewModel by viewModels()
     private lateinit var imageRepository: ImageRepository
-    
+
     private lateinit var takePictureLauncher: ActivityResultLauncher<Uri>
     private lateinit var pickSingleImageLauncher: ActivityResultLauncher<PickVisualMediaRequest>
     private lateinit var pickMultipleImagesLauncher: ActivityResultLauncher<PickVisualMediaRequest>
-    
+
     private var tempCameraUri: Uri? = null
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         imageRepository = ImageRepository(this)
         setupImageLaunchers()
-        
+
         enableEdgeToEdge()
         setContent {
             PalBudgetTheme {
@@ -123,7 +120,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     private fun setupImageLaunchers() {
         takePictureLauncher = registerForActivityResult(
             ActivityResultContracts.TakePicture()
@@ -131,13 +128,17 @@ class MainActivity : ComponentActivity() {
             if (success && tempCameraUri != null) {
                 val imageInfo = ImageUtils.uriToImageInfo(this, tempCameraUri!!)
                 viewModel.addImages(listOf(imageInfo))
-                Toast.makeText(this, getString(R.string.photo_captured_successfully), Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    getString(R.string.photo_captured_successfully),
+                    Toast.LENGTH_SHORT
+                ).show()
             } else {
                 Log.w("PalBudget", "Camera capture failed - success: $success, uri: $tempCameraUri")
             }
             tempCameraUri = null
         }
-        
+
         pickSingleImageLauncher = registerForActivityResult(
             ActivityResultContracts.PickVisualMedia()
         ) { uri ->
@@ -146,7 +147,7 @@ class MainActivity : ComponentActivity() {
                 viewModel.addImages(listOf(imageInfo))
             }
         }
-        
+
         pickMultipleImagesLauncher = registerForActivityResult(
             ActivityResultContracts.PickMultipleVisualMedia(maxItems = 10)
         ) { uris ->
@@ -155,21 +156,25 @@ class MainActivity : ComponentActivity() {
                 uris.forEach { uri ->
                     try {
                         contentResolver.takePersistableUriPermission(
-                            uri, 
+                            uri,
                             android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
                         )
                     } catch (e: SecurityException) {
                         Log.d("PalBudget", "Could not take persistable permission for $uri", e)
-                        Toast.makeText(this@MainActivity, getString(R.string.some_images_may_not_persist), Toast.LENGTH_LONG).show()
+                        Toast.makeText(
+                            this@MainActivity,
+                            getString(R.string.some_images_may_not_persist),
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
-                
+
                 val imageInfos = uris.map { ImageUtils.uriToImageInfo(this, it) }
                 viewModel.addImages(imageInfos)
             }
         }
     }
-    
+
     fun launchCamera() {
         val uri = ImageUtils.createImageUri(this)
         uri?.let {
@@ -177,7 +182,8 @@ class MainActivity : ComponentActivity() {
             takePictureLauncher.launch(it)
         } ?: run {
             Log.e("PalBudget", "Failed to create camera URI")
-            Toast.makeText(this, getString(R.string.failed_to_create_camera_uri), Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.failed_to_create_camera_uri), Toast.LENGTH_LONG)
+                .show()
         }
     }
 
@@ -186,65 +192,70 @@ class MainActivity : ComponentActivity() {
             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
         )
     }
-    
+
     private fun removeAllImages() {
         viewModel.removeAllImages()
         Toast.makeText(this, getString(R.string.all_images_removed), Toast.LENGTH_SHORT).show()
     }
-    
+
     private fun analyzeSelectedImages(selectedImagesUris: Set<String>) {
         val selectedImages = viewModel.images.filter { selectedImagesUris.contains(it.uri) }
-        
+
         if (selectedImages.isEmpty()) {
             Toast.makeText(this, "No images selected for analysis", Toast.LENGTH_LONG).show()
             return
         }
-        
+
         // Get original URIs
         val originalUris = selectedImages.map { it.uri }
-        
+
         // Convert image URIs to base64 format
         val imageBase64List = selectedImages.mapNotNull { imageInfo ->
             ImageUtils.uriToBase64(this, Uri.parse(imageInfo.uri))
         }
-        
+
         // Launch coroutine to perform analysis
         val openAIService = OpenAIService(this)
-        
+
         if (imageBase64List.isEmpty()) {
             Toast.makeText(this, "Failed to convert images to base64", Toast.LENGTH_LONG).show()
             return
         }
-        
+
         // Show loading toast
-        Toast.makeText(this, "Analyzing ${imageBase64List.size} image(s)...", Toast.LENGTH_SHORT).show()
-        
+        Toast.makeText(this, "Analyzing ${imageBase64List.size} image(s)...", Toast.LENGTH_SHORT)
+            .show()
+
         // Use lifecycleScope for proper coroutine scope tied to activity lifecycle
         lifecycleScope.launch {
             val result = openAIService.analyzeReceipts(imageBase64List, originalUris)
-            
+
             // Show result (already on main thread with lifecycleScope)
             if (result.success) {
                 val summary = buildAnalysisSummary(result.results)
                 Toast.makeText(this@MainActivity, summary, Toast.LENGTH_LONG).show()
             } else {
                 val errorMessage = result.error ?: "Unknown error occurred"
-                Toast.makeText(this@MainActivity, "Analysis failed: $errorMessage", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this@MainActivity,
+                    "Analysis failed: $errorMessage",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
-    
+
     private fun buildAnalysisSummary(results: List<ImageAnalysis>): String {
         val receipts = results.filter { it.isReceipt }
         val nonReceipts = results.filter { !it.isReceipt }
-        
+
         val summary = StringBuilder()
-        
+
         if (receipts.isEmpty() && nonReceipts.isNotEmpty()) {
             summary.append("No receipts found in ${nonReceipts.size} image(s)")
         } else if (receipts.isNotEmpty()) {
             summary.append("Found ${receipts.size} receipt(s):\n\n")
-            
+
             receipts.forEach { result ->
                 result.analysis?.let { analysis ->
                     summary.append("• ${analysis.category.uppercase()}: $${analysis.finalPrice / 100.0}\n")
@@ -252,12 +263,12 @@ class MainActivity : ComponentActivity() {
                     summary.append("  ${analysis.items.size} item(s)\n")
                 }
             }
-            
+
             if (nonReceipts.isNotEmpty()) {
                 summary.append("\n${nonReceipts.size} image(s) were not receipts")
             }
         }
-        
+
         return summary.toString()
     }
 }
@@ -273,170 +284,138 @@ fun PalBudgetApp(
     onRemoveSelected: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
     onAnalyzeSelected: (Set<String>) -> Unit
 ) {
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
     var currentPage by remember { mutableStateOf("receipts") }
     var selectedImages by remember { mutableStateOf(setOf<String>()) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
-    
+
     // Handle back button when images are selected
     BackHandler(enabled = selectedImages.isNotEmpty()) {
         selectedImages = setOf()
     }
-    
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "PalBudget",
-                        style = MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier.padding(bottom = 24.dp)
-                    )
-                    
-                    NavigationDrawerItem(
-                        icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
-                        label = { Text("Receipts") },
-                        selected = currentPage == "receipts",
-                        onClick = {
-                            currentPage = "receipts"
-                            scope.launch {
-                                drawerState.close()
-                            }
-                        }
-                    )
-                }
-            }
-        }
-    ) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { 
-                        if (selectedImages.isNotEmpty()) {
-                            Text("${selectedImages.size} selected")
-                        } else {
-                            Text("PalBudget")
-                        }
-                    },
-                    navigationIcon = {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    if (selectedImages.isNotEmpty()) {
+                        Text("${selectedImages.size} selected")
+                    } else {
+                        Text("PalBudget")
+                    }
+                },
+                navigationIcon = {
+                    if (selectedImages.isNotEmpty()) {
                         IconButton(
-                            onClick = {
-                                if (selectedImages.isNotEmpty()) {
-                                    selectedImages = setOf()
-                                } else {
-                                    scope.launch {
-                                        drawerState.open()
-                                    }
-                                }
-                            }
+                            onClick = { selectedImages = setOf() }
                         ) {
-                            if (selectedImages.isNotEmpty()) {
-                                Icon(Icons.Default.Menu, contentDescription = "Clear selection")
-                            } else {
-                                Icon(Icons.Filled.Menu, contentDescription = "Open menu")
+                            Icon(Icons.Default.Menu, contentDescription = "Clear selection")
+                        }
+                    }
+                },
+                actions = {
+                    if (selectedImages.isNotEmpty()) {
+                        Box {
+                            IconButton(
+                                onClick = { showOverflowMenu = true }
+                            ) {
+                                Icon(
+                                    Icons.Filled.MoreVert,
+                                    contentDescription = "More options",
+                                    tint = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showOverflowMenu,
+                                onDismissRequest = { showOverflowMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Analyze") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        onAnalyzeSelected(selectedImages)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Remove") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        showDeleteConfirmation = true
+                                    }
+                                )
                             }
                         }
-                    },
-                    actions = {
-                        if (selectedImages.isNotEmpty()) {
-                            Box {
-                                IconButton(
-                                    onClick = { showOverflowMenu = true }
-                                ) {
-                                    Icon(
-                                        Icons.Filled.MoreVert,
-                                        contentDescription = "More options",
-                                        tint = MaterialTheme.colorScheme.onBackground
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = showOverflowMenu,
-                                    onDismissRequest = { showOverflowMenu = false }
-                                ) {
-                                    DropdownMenuItem(
-                                        text = { Text("Analyze") },
-                                        onClick = {
-                                            showOverflowMenu = false
-                                            onAnalyzeSelected(selectedImages)
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Remove") },
-                                        onClick = {
-                                            showOverflowMenu = false
-                                            showDeleteConfirmation = true
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            )
+        },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
+                    label = { Text("Receipts") },
+                    selected = currentPage == "receipts",
+                    onClick = { currentPage = "receipts" }
                 )
             }
-        ) { paddingValues ->
-            Box(modifier = Modifier.padding(paddingValues)) {
-                when (currentPage) {
-                    "receipts" -> ReceiptsScreen(
-                        images = images,
-                        selectedImages = selectedImages,
-                        onLoadImages = onLoadImages,
-                        onTakePhoto = onTakePhoto,
-                        onPickMultiple = onPickMultiple,
-                        onRemoveAll = onRemoveAll,
-                        onRemoveSelected = onRemoveSelected,
-                        onImageSelected = { imageId, isSelected ->
-                            if (isSelected) {
-                                selectedImages = selectedImages + imageId
-                            } else {
-                                selectedImages = selectedImages - imageId
-                            }
-                        },
-                        isInSelectionMode = selectedImages.isNotEmpty()
-                    )
-                }
+        }
+    ) { paddingValues ->
+        Box(modifier = Modifier.padding(paddingValues)) {
+            when (currentPage) {
+                "receipts" -> ReceiptsScreen(
+                    images = images,
+                    selectedImages = selectedImages,
+                    onLoadImages = onLoadImages,
+                    onTakePhoto = onTakePhoto,
+                    onPickMultiple = onPickMultiple,
+                    onRemoveAll = onRemoveAll,
+                    onRemoveSelected = onRemoveSelected,
+                    onImageSelected = { imageId, isSelected ->
+                        if (isSelected) {
+                            selectedImages = selectedImages + imageId
+                        } else {
+                            selectedImages = selectedImages - imageId
+                        }
+                    },
+                    isInSelectionMode = selectedImages.isNotEmpty()
+                )
             }
         }
-        
-        // Delete confirmation dialog
-        if (showDeleteConfirmation) {
-            AlertDialog(
-                onDismissRequest = { showDeleteConfirmation = false },
-                title = { 
-                    Text("Remove ${selectedImages.size} receipt${if (selectedImages.size == 1) "" else "s"}") 
-                },
-                text = { 
-                    Text(LocalContext.current.getString(R.string.remove_all_images_message)) 
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showDeleteConfirmation = false
-                            // Remove selected images
-                            val imagesToRemove = images.filter { selectedImages.contains(it.uri) }
-                            onRemoveSelected(imagesToRemove)
-                            selectedImages = setOf()
-                        }
-                    ) {
-                        Text(LocalContext.current.getString(R.string.remove))
+    }
+
+    // Delete confirmation dialog
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = {
+                Text("Remove ${selectedImages.size} receipt${if (selectedImages.size == 1) "" else "s"}")
+            },
+            text = {
+                Text(LocalContext.current.getString(R.string.remove_all_images_message))
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        // Remove selected images
+                        val imagesToRemove = images.filter { selectedImages.contains(it.uri) }
+                        onRemoveSelected(imagesToRemove)
+                        selectedImages = setOf()
                     }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = { showDeleteConfirmation = false }
-                    ) {
-                        Text(LocalContext.current.getString(R.string.cancel))
-                    }
+                ) {
+                    Text(LocalContext.current.getString(R.string.remove))
                 }
-            )
-        }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteConfirmation = false }
+                ) {
+                    Text(LocalContext.current.getString(R.string.cancel))
+                }
+            }
+        )
     }
 }
 
@@ -455,14 +434,14 @@ fun ReceiptsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
-    
+
     // Load images on startup
     LaunchedEffect(Unit) {
         val imageRepository = ImageRepository(context)
         val savedImages = imageRepository.loadImages()
         onLoadImages(savedImages)
     }
-    
+
     // Save images when they change
     LaunchedEffect(images.size) {
         val imageRepository = ImageRepository(context)
@@ -535,7 +514,7 @@ fun ReceiptsScreen(
             }
         }
     }
-    
+
     if (showBottomSheet) {
         ImageOptionsBottomSheet(
             onDismiss = { showBottomSheet = false },
@@ -595,7 +574,7 @@ fun ImageCard(
                 error = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_report_image),
                 placeholder = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_gallery)
             )
-            
+
             // Selection indicator
             if (isSelected) {
                 Box(
@@ -606,7 +585,7 @@ fun ImageCard(
                             shape = RoundedCornerShape(12.dp)
                         )
                 )
-                
+
                 // Selection checkmark
                 Box(
                     modifier = Modifier
@@ -641,7 +620,7 @@ fun ImageOptionsBottomSheet(
     val bottomSheetState = rememberModalBottomSheetState()
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
     var showRemoveAllDialog by remember { mutableStateOf(false) }
-    
+
     // Auto-launch camera when permission is granted
     LaunchedEffect(cameraPermissionState.status.isGranted) {
         if (cameraPermissionState.status.isGranted) {
@@ -649,7 +628,7 @@ fun ImageOptionsBottomSheet(
             kotlinx.coroutines.delay(100)
         }
     }
-    
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = bottomSheetState,
@@ -667,7 +646,7 @@ fun ImageOptionsBottomSheet(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
-            
+
             // Take Photo Option with Permission Handling
             OutlinedButton(
                 onClick = {
@@ -686,7 +665,7 @@ fun ImageOptionsBottomSheet(
                     Text(LocalContext.current.getString(R.string.take_photo))
                 }
             }
-            
+
             // Choose from Gallery (Multiple)
             OutlinedButton(
                 onClick = onPickMultiple,
@@ -699,7 +678,7 @@ fun ImageOptionsBottomSheet(
                     Text(LocalContext.current.getString(R.string.choose_from_gallery))
                 }
             }
-            
+
             // Remove All Images
             OutlinedButton(
                 onClick = { showRemoveAllDialog = true },
@@ -716,18 +695,18 @@ fun ImageOptionsBottomSheet(
                     Text(LocalContext.current.getString(R.string.remove_all_images_button))
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
-    
+
     // Confirmation Dialog for Remove All
     if (showRemoveAllDialog) {
         AlertDialog(
             onDismissRequest = { showRemoveAllDialog = false },
             title = { Text(LocalContext.current.getString(R.string.remove_all_images_title)) },
-            text = { 
-                Text(LocalContext.current.getString(R.string.remove_all_images_message)) 
+            text = {
+                Text(LocalContext.current.getString(R.string.remove_all_images_message))
             },
             confirmButton = {
                 Button(
