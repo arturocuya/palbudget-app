@@ -38,14 +38,23 @@ object ImageUtils {
         return try {
             context.contentResolver.query(
                 uri,
-                arrayOf(MediaStore.Images.Media.DATE_ADDED),
+                arrayOf(MediaStore.Images.Media.DATE_TAKEN, MediaStore.Images.Media.DATE_ADDED),
                 null,
                 null,
                 null
             )?.use { cursor ->
                 if (cursor.moveToFirst()) {
-                    val dateIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
-                    cursor.getLong(dateIndex) * 1000 // Convert to milliseconds
+                    // Try to get DATE_TAKEN first (actual photo date), fallback to DATE_ADDED
+                    val dateTakenIndex = cursor.getColumnIndex(MediaStore.Images.Media.DATE_TAKEN)
+                    val dateTaken = if (dateTakenIndex != -1) cursor.getLong(dateTakenIndex) else 0L
+                    
+                    if (dateTaken > 0) {
+                        dateTaken // DATE_TAKEN is already in milliseconds
+                    } else {
+                        // Fallback to DATE_ADDED
+                        val dateAddedIndex = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
+                        cursor.getLong(dateAddedIndex) * 1000 // Convert to milliseconds
+                    }
                 } else {
                     System.currentTimeMillis()
                 }

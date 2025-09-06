@@ -12,20 +12,19 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
-import com.example.palbudget.service.ReceiptAnalysis
+import com.example.palbudget.data.ReceiptAnalysis
 import kotlinx.coroutines.launch
-import com.example.palbudget.repository.ImageRepository
+
 import com.example.palbudget.service.ImageAnalysis
 import com.example.palbudget.service.OpenAIService
 import com.example.palbudget.ui.theme.PalBudgetTheme
 import com.example.palbudget.utils.ImageUtils
-import com.example.palbudget.viewmodel.ImageViewModel
+import com.example.palbudget.viewmodel.RoomImageViewModel
 import androidx.core.net.toUri
 import com.example.palbudget.views.MainScreen
 
 class MainActivity : ComponentActivity() {
-    private val viewModel: ImageViewModel by viewModels()
-    private lateinit var imageRepository: ImageRepository
+    private val viewModel: RoomImageViewModel by viewModels()
 
     private lateinit var takePictureLauncher: ActivityResultLauncher<Uri>
     private lateinit var pickSingleImageLauncher: ActivityResultLauncher<PickVisualMediaRequest>
@@ -36,7 +35,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        imageRepository = ImageRepository(this)
         setupImageLaunchers()
 
         enableEdgeToEdge()

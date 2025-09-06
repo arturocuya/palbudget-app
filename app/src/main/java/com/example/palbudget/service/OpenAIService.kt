@@ -3,6 +3,8 @@ package com.example.palbudget.service
 import android.content.Context
 import android.util.Log
 import com.example.palbudget.data.Content
+import com.example.palbudget.data.ReceiptItem
+import com.example.palbudget.data.ReceiptAnalysis
 import com.example.palbudget.data.ImageUrl
 import com.example.palbudget.data.JsonSchemaWrapper
 import com.example.palbudget.data.Message
@@ -20,17 +22,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-data class ReceiptItem(
-    val name: String,
-    val price: Int // in cents
-)
 
-data class ReceiptAnalysis(
-    val items: List<ReceiptItem>,
-    val category: String,
-    val finalPrice: Int, // in cents
-    val date: String? // ISO 8601 format (YYYY-MM-DD) or null if not available
-)
 
 data class ImageAnalysis(
     val imageIndex: Int,

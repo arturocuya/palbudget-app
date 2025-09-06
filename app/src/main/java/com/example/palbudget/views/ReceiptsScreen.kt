@@ -42,18 +42,8 @@ fun ReceiptsScreen(
     val context = LocalContext.current
     var showBottomSheet by remember { mutableStateOf(false) }
 
-    // Load images on startup
-    LaunchedEffect(Unit) {
-        val imageRepository = ImageRepository(context)
-        val savedImages = imageRepository.loadImages()
-        onLoadImages(savedImages)
-    }
-
-    // Save images when they change
-    LaunchedEffect(images.size) {
-        val imageRepository = ImageRepository(context)
-        imageRepository.saveImages(images.map { it.imageInfo })
-    }
+    // NOTE: Images are now loaded automatically by RoomImageViewModel
+    // No need to manually load/save images as Room handles persistence
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -106,8 +96,7 @@ fun ReceiptsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    val sortedImages = images.sortedByDescending { it.imageInfo.dateCreated }
-                    items(sortedImages) { imageWithAnalysis ->
+                    items(images) { imageWithAnalysis ->
                         ImageCard(
                             imageWithAnalysis = imageWithAnalysis,
                             isSelected = selectedImages.contains(imageWithAnalysis.imageInfo.uri),

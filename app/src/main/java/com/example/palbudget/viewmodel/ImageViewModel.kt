@@ -4,7 +4,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.ViewModel
 import com.example.palbudget.data.ImageInfo
-import com.example.palbudget.service.ReceiptAnalysis
+import com.example.palbudget.data.ReceiptAnalysis
 
 data class ImageWithAnalysis(
     val imageInfo: ImageInfo,
