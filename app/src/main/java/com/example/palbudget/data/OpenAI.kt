@@ -1,7 +1,8 @@
-package com.example.palbudget.model
+package com.example.palbudget.data
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class OpenAIRequest(
@@ -42,7 +43,7 @@ data class ResponseFormat(
 data class JsonSchemaWrapper(
     val name: String = "ReceiptAnalysisResponse", 
     val strict: Boolean = true,
-    val schema: kotlinx.serialization.json.JsonElement
+    val schema: JsonElement
 )
 
 // Response models
@@ -74,20 +75,5 @@ data class ImageAnalysisResponse(
     val imageUri: String,
     @SerialName("is_receipt")
     val isReceipt: Boolean,
-    val analysis: ReceiptAnalysisResponse?
-)
-
-@Serializable
-data class ReceiptAnalysisResponse(
-    val items: List<ReceiptItemResponse>,
-    val category: String,
-    @SerialName("final_price")
-    val finalPrice: Int,
-    val date: String?
-)
-
-@Serializable
-data class ReceiptItemResponse(
-    val name: String,
-    val price: Int
+    val analysis: ReceiptAnalysis?
 )

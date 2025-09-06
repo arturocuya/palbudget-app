@@ -79,13 +79,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import com.example.palbudget.data.ImageRepository
+import com.example.palbudget.repository.ImageRepository
 import com.example.palbudget.service.ImageAnalysis
 import com.example.palbudget.service.OpenAIService
 import com.example.palbudget.ui.theme.PalBudgetTheme
 import com.example.palbudget.utils.ImageUtils
 import com.example.palbudget.viewmodel.ImageViewModel
-import androidx.core.net.toUri
+import com.example.palbudget.data.ImageInfo
 
 class MainActivity : ComponentActivity() {
     private val viewModel: ImageViewModel by viewModels()
@@ -276,12 +276,12 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PalBudgetApp(
-    images: List<com.example.palbudget.data.ImageInfo>,
-    onLoadImages: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
+    images: List<ImageInfo>,
+    onLoadImages: (List<ImageInfo>) -> Unit,
     onTakePhoto: () -> Unit,
     onPickMultiple: () -> Unit,
     onRemoveAll: () -> Unit,
-    onRemoveSelected: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
+    onRemoveSelected: (List<ImageInfo>) -> Unit,
     onAnalyzeSelected: (Set<String>) -> Unit
 ) {
     var currentPage by remember { mutableStateOf("receipts") }
@@ -421,13 +421,13 @@ fun PalBudgetApp(
 
 @Composable
 fun ReceiptsScreen(
-    images: List<com.example.palbudget.data.ImageInfo>,
+    images: List<ImageInfo>,
     selectedImages: Set<String>,
-    onLoadImages: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
+    onLoadImages: (List<ImageInfo>) -> Unit,
     onTakePhoto: () -> Unit,
     onPickMultiple: () -> Unit,
     onRemoveAll: () -> Unit,
-    onRemoveSelected: (List<com.example.palbudget.data.ImageInfo>) -> Unit,
+    onRemoveSelected: (List<ImageInfo>) -> Unit,
     onImageSelected: (String, Boolean) -> Unit,
     isInSelectionMode: Boolean = false
 ) {
@@ -537,7 +537,7 @@ fun ReceiptsScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ImageCard(
-    imageInfo: com.example.palbudget.data.ImageInfo,
+    imageInfo: ImageInfo,
     isSelected: Boolean = false,
     isInSelectionMode: Boolean = false,
     onSelectionChanged: (Boolean) -> Unit = {}

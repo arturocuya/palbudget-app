@@ -61,20 +61,7 @@ object ImageUtils {
             dateCreated = getImageDateFromUri(context, uri)
         )
     }
-    
-    fun markImageAsCompleted(context: Context, uri: Uri) {
-        try {
-            android.util.Log.d("PalBudget", "Marking image as completed: $uri")
-            val contentValues = ContentValues().apply {
-                put(MediaStore.Images.Media.IS_PENDING, 0) // Mark as completed
-            }
-            val updated = context.contentResolver.update(uri, contentValues, null, null)
-            android.util.Log.d("PalBudget", "Updated $updated rows for URI: $uri")
-        } catch (e: Exception) {
-            android.util.Log.e("PalBudget", "Could not mark image as completed: $uri", e)
-        }
-    }
-    
+
     fun uriToBase64(context: Context, uri: Uri): String? {
         return try {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->

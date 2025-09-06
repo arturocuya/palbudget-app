@@ -2,7 +2,14 @@ package com.example.palbudget.service
 
 import android.content.Context
 import android.util.Log
-import com.example.palbudget.model.*
+import com.example.palbudget.data.Content
+import com.example.palbudget.data.ImageUrl
+import com.example.palbudget.data.JsonSchemaWrapper
+import com.example.palbudget.data.Message
+import com.example.palbudget.data.OpenAIRequest
+import com.example.palbudget.data.OpenAIResponse
+import com.example.palbudget.data.ResponseFormat
+import com.example.palbudget.data.StructuredResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi

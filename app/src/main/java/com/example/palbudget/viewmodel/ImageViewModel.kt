@@ -22,11 +22,7 @@ class ImageViewModel : ViewModel() {
     fun removeImage(imageInfo: ImageInfo) {
         _images.remove(imageInfo)
     }
-    
-    fun getSortedImages(): List<ImageInfo> {
-        return _images.sortedByDescending { it.dateCreated }
-    }
-    
+
     fun removeAllImages() {
         _images.clear()
     }
