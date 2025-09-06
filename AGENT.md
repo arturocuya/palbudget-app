@@ -7,3 +7,4 @@ instructions:
 - all user facing text should be in strings.xml, except if the whole text is just emojis, those can be hardcoded.
 - this project is dark mode only.
 - do not use xml files for views. use compose only, with material3 elements.
+- when checking results of your changes, don't run diagnostics. just run ./gradlew build --quiet

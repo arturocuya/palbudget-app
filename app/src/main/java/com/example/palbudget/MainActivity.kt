@@ -12,6 +12,8 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.lifecycle.lifecycleScope
+import com.example.palbudget.viewmodel.ImageWithAnalysis
+import com.example.palbudget.service.ReceiptAnalysis
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -57,6 +59,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.ui.draw.clip
@@ -70,7 +74,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
@@ -86,6 +89,7 @@ import com.example.palbudget.ui.theme.PalBudgetTheme
 import com.example.palbudget.utils.ImageUtils
 import com.example.palbudget.viewmodel.ImageViewModel
 import com.example.palbudget.data.ImageInfo
+import androidx.core.net.toUri
 
 class MainActivity : ComponentActivity() {
     private val viewModel: ImageViewModel by viewModels()
@@ -112,8 +116,8 @@ class MainActivity : ComponentActivity() {
                     onTakePhoto = ::launchCamera,
                     onPickMultiple = ::launchMultipleImagePicker,
                     onRemoveAll = ::removeAllImages,
-                    onRemoveSelected = { imageInfos ->
-                        imageInfos.forEach { viewModel.removeImage(it) }
+                    onRemoveSelected = { imageWithAnalysisList ->
+                        imageWithAnalysisList.forEach { viewModel.removeImage(it) }
                     },
                     onAnalyzeSelected = ::analyzeSelectedImages
                 )
@@ -199,7 +203,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun analyzeSelectedImages(selectedImagesUris: Set<String>) {
-        val selectedImages = viewModel.images.filter { selectedImagesUris.contains(it.uri) }
+        val selectedImages = viewModel.images.filter { selectedImagesUris.contains(it.imageInfo.uri) }
 
         if (selectedImages.isEmpty()) {
             Toast.makeText(this, "No images selected for analysis", Toast.LENGTH_LONG).show()
@@ -207,11 +211,11 @@ class MainActivity : ComponentActivity() {
         }
 
         // Get original URIs
-        val originalUris = selectedImages.map { it.uri }
+        val originalUris = selectedImages.map { it.imageInfo.uri }
 
         // Convert image URIs to base64 format
-        val imageBase64List = selectedImages.mapNotNull { imageInfo ->
-            ImageUtils.uriToBase64(this, Uri.parse(imageInfo.uri))
+        val imageBase64List = selectedImages.mapNotNull { imageWithAnalysis ->
+            ImageUtils.uriToBase64(this, imageWithAnalysis.imageInfo.uri.toUri())
         }
 
         // Launch coroutine to perform analysis
@@ -232,6 +236,29 @@ class MainActivity : ComponentActivity() {
 
             // Show result (already on main thread with lifecycleScope)
             if (result.success) {
+                // Update viewModel with analysis results
+                result.results.forEach { imageAnalysis ->
+                    val originalUri = if (imageAnalysis.imageIndex < originalUris.size) {
+                        originalUris[imageAnalysis.imageIndex]
+                    } else null
+                    
+                    if (originalUri != null) {
+                        // Find the ImageInfo in the ViewModel by URI
+                        val imageInfo = viewModel.images.find { it.imageInfo.uri == originalUri }?.imageInfo
+                        if (imageInfo != null) {
+                            Log.d("MainActivity", "Updating analysis for image: ${imageInfo.uri}, isReceipt: ${imageAnalysis.isReceipt}")
+                            // For non-receipts, create an empty ReceiptAnalysis to indicate it was analyzed
+                            val analysisToStore = imageAnalysis.analysis ?: ReceiptAnalysis(
+                                items = emptyList(),
+                                category = "",
+                                finalPrice = 0,
+                                date = null
+                            )
+                            viewModel.updateAnalysis(imageInfo, analysisToStore)
+                        }
+                    }
+                }
+                
                 val summary = buildAnalysisSummary(result.results)
                 Toast.makeText(this@MainActivity, summary, Toast.LENGTH_LONG).show()
             } else {
@@ -276,12 +303,12 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PalBudgetApp(
-    images: List<ImageInfo>,
+    images: List<ImageWithAnalysis>,
     onLoadImages: (List<ImageInfo>) -> Unit,
     onTakePhoto: () -> Unit,
     onPickMultiple: () -> Unit,
     onRemoveAll: () -> Unit,
-    onRemoveSelected: (List<ImageInfo>) -> Unit,
+    onRemoveSelected: (List<ImageWithAnalysis>) -> Unit,
     onAnalyzeSelected: (Set<String>) -> Unit
 ) {
     var currentPage by remember { mutableStateOf("receipts") }
@@ -333,6 +360,7 @@ fun PalBudgetApp(
                                     onClick = {
                                         showOverflowMenu = false
                                         onAnalyzeSelected(selectedImages)
+                                        selectedImages = setOf()
                                     }
                                 )
                                 DropdownMenuItem(
@@ -371,12 +399,11 @@ fun PalBudgetApp(
                     onTakePhoto = onTakePhoto,
                     onPickMultiple = onPickMultiple,
                     onRemoveAll = onRemoveAll,
-                    onRemoveSelected = onRemoveSelected,
                     onImageSelected = { imageId, isSelected ->
-                        if (isSelected) {
-                            selectedImages = selectedImages + imageId
+                        selectedImages = if (isSelected) {
+                            selectedImages + imageId
                         } else {
-                            selectedImages = selectedImages - imageId
+                            selectedImages - imageId
                         }
                     },
                     isInSelectionMode = selectedImages.isNotEmpty()
@@ -400,7 +427,7 @@ fun PalBudgetApp(
                     onClick = {
                         showDeleteConfirmation = false
                         // Remove selected images
-                        val imagesToRemove = images.filter { selectedImages.contains(it.uri) }
+                        val imagesToRemove = images.filter { selectedImages.contains(it.imageInfo.uri) }
                         onRemoveSelected(imagesToRemove)
                         selectedImages = setOf()
                     }
@@ -421,18 +448,16 @@ fun PalBudgetApp(
 
 @Composable
 fun ReceiptsScreen(
-    images: List<ImageInfo>,
+    images: List<ImageWithAnalysis>,
     selectedImages: Set<String>,
     onLoadImages: (List<ImageInfo>) -> Unit,
     onTakePhoto: () -> Unit,
     onPickMultiple: () -> Unit,
     onRemoveAll: () -> Unit,
-    onRemoveSelected: (List<ImageInfo>) -> Unit,
     onImageSelected: (String, Boolean) -> Unit,
     isInSelectionMode: Boolean = false
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var showBottomSheet by remember { mutableStateOf(false) }
 
     // Load images on startup
@@ -445,7 +470,7 @@ fun ReceiptsScreen(
     // Save images when they change
     LaunchedEffect(images.size) {
         val imageRepository = ImageRepository(context)
-        imageRepository.saveImages(images)
+        imageRepository.saveImages(images.map { it.imageInfo })
     }
 
     Scaffold(
@@ -472,7 +497,7 @@ fun ReceiptsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
-                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
@@ -499,14 +524,14 @@ fun ReceiptsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    val sortedImages = images.sortedByDescending { it.dateCreated }
-                    items(sortedImages) { imageInfo ->
+                    val sortedImages = images.sortedByDescending { it.imageInfo.dateCreated }
+                    items(sortedImages) { imageWithAnalysis ->
                         ImageCard(
-                            imageInfo = imageInfo,
-                            isSelected = selectedImages.contains(imageInfo.uri),
+                            imageWithAnalysis = imageWithAnalysis,
+                            isSelected = selectedImages.contains(imageWithAnalysis.imageInfo.uri),
                             isInSelectionMode = isInSelectionMode,
                             onSelectionChanged = { isSelected ->
-                                onImageSelected(imageInfo.uri, isSelected)
+                                onImageSelected(imageWithAnalysis.imageInfo.uri, isSelected)
                             }
                         )
                     }
@@ -537,11 +562,12 @@ fun ReceiptsScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ImageCard(
-    imageInfo: ImageInfo,
+    imageWithAnalysis: ImageWithAnalysis,
     isSelected: Boolean = false,
     isInSelectionMode: Boolean = false,
     onSelectionChanged: (Boolean) -> Unit = {}
 ) {
+    val imageInfo = imageWithAnalysis.imageInfo
     Card(
         modifier = Modifier
             .aspectRatio(1f)
@@ -553,7 +579,7 @@ fun ImageCard(
             modifier = Modifier.fillMaxSize()
         ) {
             AsyncImage(
-                model = android.net.Uri.parse(imageInfo.uri),
+                model = imageInfo.uri.toUri(),
                 contentDescription = LocalContext.current.getString(R.string.selected_image),
                 modifier = Modifier
                     .fillMaxSize()
@@ -602,6 +628,31 @@ fun ImageCard(
                         text = "✓",
                         color = MaterialTheme.colorScheme.onPrimary,
                         style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+            
+            // Analysis status icon (bottom right)
+            imageWithAnalysis.analysis?.let { analysis ->
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(8.dp)
+                        .size(20.dp)
+                        .background(
+                            color = if (analysis.items.isNotEmpty()) 
+                                MaterialTheme.colorScheme.primary 
+                            else 
+                                MaterialTheme.colorScheme.error,
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (analysis.items.isNotEmpty()) Icons.Default.Check else Icons.Default.Close,
+                        contentDescription = if (analysis.items.isNotEmpty()) "Receipt detected" else "Not a receipt",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(12.dp)
                     )
                 }
             }
@@ -659,7 +710,7 @@ fun ImageOptionsBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(LocalContext.current.getString(R.string.take_photo))
@@ -672,7 +723,7 @@ fun ImageOptionsBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(LocalContext.current.getString(R.string.choose_from_gallery))
@@ -689,7 +740,7 @@ fun ImageOptionsBottomSheet(
                 )
             ) {
                 Row(
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(LocalContext.current.getString(R.string.remove_all_images_button))
@@ -740,7 +791,6 @@ fun ReceiptsScreenPreview() {
             onTakePhoto = { },
             onPickMultiple = { },
             onRemoveAll = { },
-            onRemoveSelected = { },
             onImageSelected = { _, _ -> },
             isInSelectionMode = false
         )
