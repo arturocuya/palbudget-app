@@ -44,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
@@ -256,12 +257,13 @@ fun ImageOptionsBottomSheet(
 ) {
     val bottomSheetState = rememberModalBottomSheetState()
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
+    var permissionJustRequested by rememberSaveable { mutableStateOf(false) }
 
-    // Auto-launch camera when permission is granted
-    LaunchedEffect(cameraPermissionState.status.isGranted) {
-        if (cameraPermissionState.status.isGranted) {
-            // Small delay to prevent immediate execution
-            kotlinx.coroutines.delay(100)
+    // Auto-launch camera when permission is granted after request
+    LaunchedEffect(cameraPermissionState.status.isGranted, permissionJustRequested) {
+        if (cameraPermissionState.status.isGranted && permissionJustRequested) {
+            onTakePhoto()
+            permissionJustRequested = false
         }
     }
 
@@ -291,6 +293,7 @@ fun ImageOptionsBottomSheet(
                             if (cameraPermissionState.status.isGranted) {
                                 onTakePhoto()
                             } else {
+                                permissionJustRequested = true
                                 cameraPermissionState.launchPermissionRequest()
                             }
                         }
