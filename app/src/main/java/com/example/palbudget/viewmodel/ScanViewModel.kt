@@ -5,6 +5,7 @@ import android.content.Context
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
@@ -23,6 +24,9 @@ class ScanViewModel(application: Application) : BaseImageViewModel(application) 
 
     private val _images = mutableStateListOf<ImageWithAnalysis>()
     val images: SnapshotStateList<ImageWithAnalysis> = _images
+    
+    private val _isAnalyzing = mutableStateOf(false)
+    val isAnalyzing: Boolean get() = _isAnalyzing.value
 
     fun addImages(newImages: List<ImageInfo>) {
         Log.d(TAG, "Adding ${newImages.size} images to scan list")
@@ -75,6 +79,7 @@ class ScanViewModel(application: Application) : BaseImageViewModel(application) 
 
         // Launch analysis coroutine
         viewModelScope.launch {
+            _isAnalyzing.value = true
             val openAIService = OpenAIService(context)
             val result = openAIService.analyzeReceipts(imageBase64List, originalUris)
 
@@ -125,6 +130,7 @@ class ScanViewModel(application: Application) : BaseImageViewModel(application) 
                 val errorMessage = result.error ?: "Unknown error occurred"
                 onToast("Analysis failed: $errorMessage")
             }
+            _isAnalyzing.value = false
         }
     }
 

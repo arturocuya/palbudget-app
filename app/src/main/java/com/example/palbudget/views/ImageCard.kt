@@ -38,7 +38,8 @@ fun ImageCard(
     isSelected: Boolean = false,
     isInSelectionMode: Boolean = false,
     onSelectionChanged: (Boolean) -> Unit = {},
-    showAnalysisIcon: Boolean = true
+    showAnalysisIcon: Boolean = true,
+    onImageClick: (() -> Unit)? = null
 ) {
     val imageInfo = imageWithAnalysis.imageInfo
     Card(
@@ -61,6 +62,8 @@ fun ImageCard(
                         onClick = {
                             if (isInSelectionMode) {
                                 onSelectionChanged(!isSelected)
+                            } else if (onImageClick != null) {
+                                onImageClick()
                             }
                         },
                         onLongClick = {

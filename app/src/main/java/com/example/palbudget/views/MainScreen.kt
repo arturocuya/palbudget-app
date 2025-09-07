@@ -68,7 +68,8 @@ fun MainScreen(
     onRemoveAllScan: () -> Unit,
     onRemoveSelectedScan: (List<ImageWithAnalysis>) -> Unit,
     onRemoveSelectedReceipts: (List<ImageWithAnalysis>) -> Unit,
-    onAnalyzeSelected: (Set<String>) -> Unit
+    onAnalyzeSelected: (Set<String>) -> Unit,
+    isAnalyzing: Boolean = false
 ) {
     var currentDestination by remember { mutableStateOf<NavDestination>(NavDestination.Scan) }
     var selectedImages by remember { mutableStateOf(setOf<String>()) }
@@ -127,7 +128,8 @@ fun MainScreen(
                                 selectedImages - imageId
                             }
                         },
-                        isInSelectionMode = selectedImages.isNotEmpty()
+                        isInSelectionMode = selectedImages.isNotEmpty(),
+                        isAnalyzing = isAnalyzing
                     )
                     NavDestination.Receipts -> ReceiptsScreen(
                         receipts = receipts,

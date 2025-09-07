@@ -48,7 +48,8 @@ class MainActivity : ComponentActivity() {
                     onRemoveSelectedReceipts = { imageWithAnalysisList ->
                         imageWithAnalysisList.forEach { receiptsViewModel.removeReceipt(it) }
                     },
-                    onAnalyzeSelected = ::analyzeSelectedImages
+                    onAnalyzeSelected = ::analyzeSelectedImages,
+                    isAnalyzing = scanViewModel.isAnalyzing
                 )
             }
         }

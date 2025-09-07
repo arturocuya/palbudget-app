@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +37,8 @@ fun ScanScreen(
     onPickMultiple: () -> Unit,
     onRemoveAll: () -> Unit,
     onImageSelected: (String, Boolean) -> Unit,
-    isInSelectionMode: Boolean = false
+    isInSelectionMode: Boolean = false,
+    isAnalyzing: Boolean = false
 ) {
     var showBottomSheet by remember { mutableStateOf(false) }
 
@@ -45,13 +48,23 @@ fun ScanScreen(
             if (!isInSelectionMode) {
                 FloatingActionButton(
                     onClick = {
-                        showBottomSheet = true
+                        if (!isAnalyzing) {
+                            showBottomSheet = true
+                        }
                     }
                 ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.add_24px),
-                        contentDescription = "Add photos"
-                    )
+                    if (isAnalyzing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(id = R.drawable.add_24px),
+                            contentDescription = "Add photos"
+                        )
+                    }
                 }
             }
         }
