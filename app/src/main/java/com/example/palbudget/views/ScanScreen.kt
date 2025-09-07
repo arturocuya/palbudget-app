@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -21,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.palbudget.R
 import com.example.palbudget.viewmodel.ImageWithAnalysis
@@ -45,7 +47,10 @@ fun ScanScreen(
                     showBottomSheet = true
                 }
             ) {
-                Text("📷")
+                Icon(
+                    painter = painterResource(id = R.drawable.add_24px),
+                    contentDescription = "Add photos"
+                )
             }
         }
     ) { innerPadding ->

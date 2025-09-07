@@ -47,6 +47,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.palbudget.R
@@ -143,13 +144,23 @@ fun MainScreen(
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
-                    icon = { Text("📷") },
+                    icon = { 
+                        Icon(
+                            painter = painterResource(id = R.drawable.document_scanner_24px),
+                            contentDescription = null
+                        )
+                    },
                     label = { Text("Scan") },
                     selected = currentDestination == NavDestination.Scan,
                     onClick = { currentDestination = NavDestination.Scan }
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
+                    icon = { 
+                        Icon(
+                            painter = painterResource(id = R.drawable.receipt_long_24px),
+                            contentDescription = null
+                        )
+                    },
                     label = { Text("Receipts") },
                     selected = currentDestination == NavDestination.Receipts,
                     onClick = { currentDestination = NavDestination.Receipts }
