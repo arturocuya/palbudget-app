@@ -1,12 +1,14 @@
 package com.example.palbudget.views
 
 import com.example.palbudget.viewmodel.ImageWithAnalysis
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,8 +30,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -72,7 +73,6 @@ fun MainScreen(
     var currentDestination by remember { mutableStateOf<NavDestination>(NavDestination.Scan) }
     var selectedImages by remember { mutableStateOf(setOf<String>()) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
-    var showOverflowMenu by remember { mutableStateOf(false) }
 
     // Handle back button when images are selected
     BackHandler(enabled = selectedImages.isNotEmpty()) {
@@ -84,66 +84,6 @@ fun MainScreen(
         selectedImages = setOf()
     }
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    if (selectedImages.isNotEmpty()) {
-                        Text("${selectedImages.size} selected")
-                    } else {
-                        Text("PalBudget")
-                    }
-                },
-                navigationIcon = {
-                    if (selectedImages.isNotEmpty()) {
-                        IconButton(
-                            onClick = { selectedImages = setOf() }
-                        ) {
-                            Icon(Icons.Default.Menu, contentDescription = "Clear selection")
-                        }
-                    }
-                },
-                actions = {
-                    if (selectedImages.isNotEmpty()) {
-                        Box {
-                            IconButton(
-                                onClick = { showOverflowMenu = true }
-                            ) {
-                                Icon(
-                                    Icons.Filled.MoreVert,
-                                    contentDescription = "More options",
-                                    tint = MaterialTheme.colorScheme.onBackground
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showOverflowMenu,
-                                onDismissRequest = { showOverflowMenu = false }
-                            ) {
-                                if (currentDestination == NavDestination.Scan) {
-                                    DropdownMenuItem(
-                                        text = { Text("Analyze") },
-                                        onClick = {
-                                            showOverflowMenu = false
-                                            onAnalyzeSelected(selectedImages)
-                                            selectedImages = setOf()
-                                        }
-                                    )
-                                }
-                                DropdownMenuItem(
-                                    text = { Text("Remove") },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        showDeleteConfirmation = true
-                                    }
-                                )
-                            }
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
-        },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -172,34 +112,63 @@ fun MainScreen(
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
-            when (currentDestination) {
-                NavDestination.Scan -> ScanScreen(
-                    images = scanImages,
-                    selectedImages = selectedImages,
-                    onTakePhoto = onTakePhoto,
-                    onPickMultiple = onPickMultiple,
-                    onRemoveAll = onRemoveAllScan,
-                    onImageSelected = { imageId, isSelected ->
-                        selectedImages = if (isSelected) {
-                            selectedImages + imageId
-                        } else {
-                            selectedImages - imageId
-                        }
-                    },
-                    isInSelectionMode = selectedImages.isNotEmpty()
-                )
-                NavDestination.Receipts -> ReceiptsScreen(
-                    receipts = receipts,
-                    selectedImages = selectedImages,
-                    onImageSelected = { imageId, isSelected ->
-                        selectedImages = if (isSelected) {
-                            selectedImages + imageId
-                        } else {
-                            selectedImages - imageId
-                        }
-                    },
-                    isInSelectionMode = selectedImages.isNotEmpty()
-                )
+            Box(modifier = Modifier.fillMaxSize()) {
+                when (currentDestination) {
+                    NavDestination.Scan -> ScanScreen(
+                        images = scanImages,
+                        selectedImages = selectedImages,
+                        onTakePhoto = onTakePhoto,
+                        onPickMultiple = onPickMultiple,
+                        onRemoveAll = onRemoveAllScan,
+                        onImageSelected = { imageId, isSelected ->
+                            selectedImages = if (isSelected) {
+                                selectedImages + imageId
+                            } else {
+                                selectedImages - imageId
+                            }
+                        },
+                        isInSelectionMode = selectedImages.isNotEmpty()
+                    )
+                    NavDestination.Receipts -> ReceiptsScreen(
+                        receipts = receipts,
+                        selectedImages = selectedImages,
+                        onImageSelected = { imageId, isSelected ->
+                            selectedImages = if (isSelected) {
+                                selectedImages + imageId
+                            } else {
+                                selectedImages - imageId
+                            }
+                        },
+                        isInSelectionMode = selectedImages.isNotEmpty()
+                    )
+                }
+                
+                // Selected images bottom sheet (non-modal)
+                if (selectedImages.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                    ) {
+                        SelectedImagesBottomSheet(
+                            selectedCount = selectedImages.size,
+                            isInScanMode = currentDestination == NavDestination.Scan,
+                            onSelectAll = {
+                            selectedImages = when (currentDestination) {
+                            NavDestination.Scan -> scanImages.map { it.imageInfo.uri }.toSet()
+                            NavDestination.Receipts -> receipts.map { it.imageInfo.uri }.toSet()
+                            }
+                            },
+                            onAnalyze = {
+                                onAnalyzeSelected(selectedImages)
+                                selectedImages = setOf()
+                            },
+                            onRemove = {
+                                showDeleteConfirmation = true
+                            }
+                        )
+                    }
+                }
             }
         }
     }
@@ -336,6 +305,92 @@ fun ImageOptionsBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+fun SelectedImagesBottomSheet(
+    selectedCount: Int,
+    isInScanMode: Boolean,
+    onSelectAll: () -> Unit,
+    onAnalyze: () -> Unit,
+    onRemove: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            // Select All
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable { onSelectAll() }
+                    .padding(16.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.select_all_24px),
+                    contentDescription = "Select all",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Select all",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            // Analyze (only show in scan mode)
+            if (isInScanMode) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clickable { onAnalyze() }
+                        .padding(16.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.automation_24px),
+                        contentDescription = "Analyze",
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Analyze",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            // Remove Selected
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable { onRemove() }
+                    .padding(16.dp)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.remove_selection_24px),
+                    contentDescription = "Remove selected",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Remove",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }

@@ -42,15 +42,17 @@ fun ScanScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    showBottomSheet = true
+            if (!isInSelectionMode) {
+                FloatingActionButton(
+                    onClick = {
+                        showBottomSheet = true
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.add_24px),
+                        contentDescription = "Add photos"
+                    )
                 }
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.add_24px),
-                    contentDescription = "Add photos"
-                )
             }
         }
     ) { innerPadding ->
