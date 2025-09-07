@@ -1,6 +1,7 @@
 package com.example.palbudget.views
 
 import com.example.palbudget.viewmodel.ImageWithAnalysis
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
@@ -254,7 +256,6 @@ fun ImageOptionsBottomSheet(
 ) {
     val bottomSheetState = rememberModalBottomSheetState()
     val cameraPermissionState = rememberPermissionState(android.Manifest.permission.CAMERA)
-    var showRemoveAllDialog by remember { mutableStateOf(false) }
 
     // Auto-launch camera when permission is granted
     LaunchedEffect(cameraPermissionState.status.isGranted) {
@@ -272,95 +273,67 @@ fun ImageOptionsBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = LocalContext.current.getString(R.string.add_photos),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            // Take Photo Option with Permission Handling
-            OutlinedButton(
-                onClick = {
-                    if (cameraPermissionState.status.isGranted) {
-                        onTakePhoto()
-                    } else {
-                        cameraPermissionState.launchPermissionRequest()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
+            // Horizontal row with icons and labels
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // Take Photo Option
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clickable {
+                            if (cameraPermissionState.status.isGranted) {
+                                onTakePhoto()
+                            } else {
+                                cameraPermissionState.launchPermissionRequest()
+                            }
+                        }
+                        .padding(16.dp)
                 ) {
-                    Text(LocalContext.current.getString(R.string.take_photo))
+                    Icon(
+                        painter = painterResource(id = R.drawable.add_a_photo_24px),
+                        contentDescription = "Take photo",
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Take photo",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
-            }
 
-            // Choose from Gallery (Multiple)
-            OutlinedButton(
-                onClick = onPickMultiple,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                // Choose from Gallery Option
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clickable { onPickMultiple() }
+                        .padding(16.dp)
                 ) {
-                    Text(LocalContext.current.getString(R.string.choose_from_gallery))
-                }
-            }
-
-            // Remove All Images
-            OutlinedButton(
-                onClick = { showRemoveAllDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error,
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.1f)
-                )
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(LocalContext.current.getString(R.string.remove_all_images_button))
+                    Icon(
+                        painter = painterResource(id = R.drawable.add_photo_alternate_24px),
+                        contentDescription = "Choose from gallery",
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Choose from gallery",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
         }
-    }
-
-    // Confirmation Dialog for Remove All
-    if (showRemoveAllDialog) {
-        AlertDialog(
-            onDismissRequest = { showRemoveAllDialog = false },
-            title = { Text(LocalContext.current.getString(R.string.remove_all_images_title)) },
-            text = {
-                Text(LocalContext.current.getString(R.string.remove_all_images_message))
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showRemoveAllDialog = false
-                        onRemoveAll()
-                    }
-                ) {
-                    Text(LocalContext.current.getString(R.string.remove))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showRemoveAllDialog = false }
-                ) {
-                    Text(LocalContext.current.getString(R.string.cancel))
-                }
-            }
-        )
     }
 }
 
