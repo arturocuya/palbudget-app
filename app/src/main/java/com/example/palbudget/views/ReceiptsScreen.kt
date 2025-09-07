@@ -9,9 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
 
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -21,23 +21,138 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
-import com.example.palbudget.R
-import com.example.palbudget.data.ReceiptAnalysis
 import com.example.palbudget.viewmodel.ImageWithAnalysis
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
+
+enum class TimeGroup {
+    TODAY,
+    YESTERDAY,
+    THIS_WEEK,
+    THIS_MONTH,
+    OLDER
+}
+
+data class GroupedReceipt(
+    val timeGroup: TimeGroup,
+    val monthYear: String? = null,
+    val receipt: ImageWithAnalysis
+)
+
+private fun parseReceiptDate(dateString: String?): LocalDate? {
+    if (dateString == null) return null
+
+    return try {
+        val possibleFormats = listOf(
+            "yyyy-MM-dd",
+            "MM/dd/yyyy",
+            "dd/MM/yyyy",
+            "yyyy/MM/dd"
+        )
+
+        for (format in possibleFormats) {
+            try {
+                val formatter = DateTimeFormatter.ofPattern(format)
+                return LocalDate.parse(dateString, formatter)
+            } catch (e: Exception) {
+                continue
+            }
+        }
+        null
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun categorizeReceipt(receipt: ImageWithAnalysis): GroupedReceipt {
+    val receiptDate = parseReceiptDate(receipt.analysis?.date)
+    val today = LocalDate.now()
+
+    if (receiptDate == null) {
+        return GroupedReceipt(TimeGroup.OLDER, receipt = receipt)
+    }
+
+    return when {
+        receiptDate.isEqual(today) -> GroupedReceipt(TimeGroup.TODAY, receipt = receipt)
+        receiptDate.isEqual(today.minusDays(1)) -> GroupedReceipt(
+            TimeGroup.YESTERDAY,
+            receipt = receipt
+        )
+
+        receiptDate.isAfter(today.minusDays(7)) -> GroupedReceipt(
+            TimeGroup.THIS_WEEK,
+            receipt = receipt
+        )
+
+        receiptDate.year == today.year && receiptDate.month == today.month ->
+            GroupedReceipt(TimeGroup.THIS_MONTH, receipt = receipt)
+
+        else -> {
+            val monthYear = if (receiptDate.year == today.year) {
+                receiptDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
+            } else {
+                "${receiptDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${receiptDate.year}"
+            }
+            GroupedReceipt(TimeGroup.OLDER, monthYear, receipt)
+        }
+    }
+}
+
+private fun groupReceipts(receipts: List<ImageWithAnalysis>): Map<String, List<ImageWithAnalysis>> {
+    val grouped = receipts.map { categorizeReceipt(it) }
+        .groupBy { groupedReceipt ->
+            when (groupedReceipt.timeGroup) {
+                TimeGroup.TODAY -> "Today"
+                TimeGroup.YESTERDAY -> "Yesterday"
+                TimeGroup.THIS_WEEK -> "This Week"
+                TimeGroup.THIS_MONTH -> LocalDate.now().month.getDisplayName(
+                    TextStyle.FULL,
+                    Locale.getDefault()
+                )
+
+                TimeGroup.OLDER -> groupedReceipt.monthYear ?: "Unknown Date"
+            }
+        }
+
+    val sortedKeys = grouped.keys.sortedWith { key1, key2 ->
+        val priority = mapOf(
+            "Unknown Date" to 0,
+            "Today" to 1,
+            "Yesterday" to 2,
+            "This Week" to 3,
+            LocalDate.now().month.getDisplayName(TextStyle.FULL, Locale.getDefault()) to 4
+        )
+
+        val p1 = priority[key1] ?: 1000
+        val p2 = priority[key2] ?: 1000
+
+        if (p1 != 1000 || p2 != 1000) {
+            p1.compareTo(p2)
+        } else {
+            // For month/year entries, sort by date descending
+            key2.compareTo(key1)
+        }
+    }
+
+    return sortedKeys.associateWith { key ->
+        grouped[key]?.map { it.receipt }?.sortedByDescending { receipt ->
+            parseReceiptDate(receipt.analysis?.date)
+        } ?: emptyList()
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +164,7 @@ fun ReceiptsScreen(
 ) {
     // NOTE: This screen only shows analyzed receipts from the database
     // No scanning functionality - that's handled by ScanScreen
-    
+
     var selectedReceiptForAnalysis by remember { mutableStateOf<ImageWithAnalysis?>(null) }
 
     Scaffold(
@@ -86,27 +201,83 @@ fun ReceiptsScreen(
                         )
                     }
                 }
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 120.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(receipts) { imageWithAnalysis ->
-                        ImageCard(
-                            imageWithAnalysis = imageWithAnalysis,
-                            isSelected = selectedImages.contains(imageWithAnalysis.imageInfo.uri),
-                            isInSelectionMode = isInSelectionMode,
-                            onSelectionChanged = { isSelected ->
-                                onImageSelected(imageWithAnalysis.imageInfo.uri, isSelected)
-                            },
-                            showAnalysisIcon = false, // Hide check marks in receipts screen
-                            onImageClick = if (!isInSelectionMode) {
-                                { selectedReceiptForAnalysis = imageWithAnalysis }
-                            } else null
-                        )
+
+                return@Surface
+            }
+
+            val groupedReceipts = groupReceipts(receipts)
+
+            LazyColumn(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                groupedReceipts.forEach { (sectionTitle, sectionReceipts) ->
+                    if (sectionReceipts.isNotEmpty()) {
+                        item(key = "header_$sectionTitle") {
+                            Text(
+                                text = sectionTitle,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+
+                        item(key = "grid_$sectionTitle") {
+                            val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+                            val minItemWidth = 110.dp
+                            val spacing = 8.dp
+                            val padding = 32.dp // Account for LazyColumn padding
+                            val itemsPerRow =
+                                ((screenWidth - padding) / (minItemWidth + spacing)).toInt()
+                                    .coerceAtLeast(1)
+
+                            val rows = sectionReceipts.chunked(itemsPerRow)
+
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                rows.forEach { rowItems ->
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        rowItems.forEach { imageWithAnalysis ->
+                                            Box(
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                ImageCard(
+                                                    imageWithAnalysis = imageWithAnalysis,
+                                                    isSelected = selectedImages.contains(
+                                                        imageWithAnalysis.imageInfo.uri
+                                                    ),
+                                                    isInSelectionMode = isInSelectionMode,
+                                                    onSelectionChanged = { isSelected ->
+                                                        onImageSelected(
+                                                            imageWithAnalysis.imageInfo.uri,
+                                                            isSelected
+                                                        )
+                                                    },
+                                                    showAnalysisIcon = false,
+                                                    onImageClick = if (!isInSelectionMode) {
+                                                        {
+                                                            selectedReceiptForAnalysis =
+                                                                imageWithAnalysis
+                                                        }
+                                                    } else null
+                                                )
+                                            }
+                                        }
+                                        // Fill remaining space if row is not complete
+                                        repeat(itemsPerRow - rowItems.size) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(24.dp))
+                        }
                     }
                 }
             }
@@ -121,8 +292,7 @@ fun ReceiptsScreen(
                 dragHandle = { BottomSheetDefaults.DragHandle() }
             ) {
                 ReceiptAnalysisBottomSheet(
-                    imageWithAnalysis = receipt,
-                    onDismiss = { selectedReceiptForAnalysis = null }
+                    imageWithAnalysis = receipt
                 )
             }
         }
@@ -131,8 +301,7 @@ fun ReceiptsScreen(
 
 @Composable
 fun ReceiptAnalysisBottomSheet(
-    imageWithAnalysis: ImageWithAnalysis,
-    onDismiss: () -> Unit
+    imageWithAnalysis: ImageWithAnalysis
 ) {
     val analysis = imageWithAnalysis.analysis!!
     Column(
@@ -242,7 +411,7 @@ fun ReceiptAnalysisBottomSheet(
             modifier = Modifier.padding(vertical = 16.dp),
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
         )
-        
+
         AsyncImage(
             model = imageWithAnalysis.imageInfo.uri.toUri(),
             contentDescription = "Receipt image",
