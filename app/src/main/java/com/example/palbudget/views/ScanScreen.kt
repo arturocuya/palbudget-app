@@ -8,33 +8,46 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.palbudget.R
-
 import com.example.palbudget.viewmodel.ImageWithAnalysis
 
 @Composable
-fun ReceiptsScreen(
-    receipts: List<ImageWithAnalysis>,
+fun ScanScreen(
+    images: List<ImageWithAnalysis>,
     selectedImages: Set<String>,
+    onTakePhoto: () -> Unit,
+    onPickMultiple: () -> Unit,
+    onRemoveAll: () -> Unit,
     onImageSelected: (String, Boolean) -> Unit,
     isInSelectionMode: Boolean = false
 ) {
-    // NOTE: This screen only shows analyzed receipts from the database
-    // No scanning functionality - that's handled by ScanScreen
+    var showBottomSheet by remember { mutableStateOf(false) }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize(),
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    showBottomSheet = true
+                }
+            ) {
+                Text("📷")
+            }
+        }
     ) { innerPadding ->
         Surface(
             modifier = Modifier
@@ -42,7 +55,7 @@ fun ReceiptsScreen(
                 .padding(innerPadding),
             color = MaterialTheme.colorScheme.background
         ) {
-            if (receipts.isEmpty()) {
+            if (images.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -52,16 +65,16 @@ fun ReceiptsScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "📄",
+                            text = "📷",
                             style = MaterialTheme.typography.displayLarge
                         )
                         Text(
-                            text = "No receipts yet",
+                            text = LocalContext.current.getString(R.string.no_images_yet),
                             style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            text = "Scan some receipts to see them here",
+                            text = LocalContext.current.getString(R.string.tap_camera_button_to_add),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                         )
@@ -75,19 +88,36 @@ fun ReceiptsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(receipts) { imageWithAnalysis ->
+                    items(images) { imageWithAnalysis ->
                         ImageCard(
                             imageWithAnalysis = imageWithAnalysis,
                             isSelected = selectedImages.contains(imageWithAnalysis.imageInfo.uri),
                             isInSelectionMode = isInSelectionMode,
                             onSelectionChanged = { isSelected ->
                                 onImageSelected(imageWithAnalysis.imageInfo.uri, isSelected)
-                            },
-                            showAnalysisIcon = false // Hide check marks in receipts screen
+                            }
                         )
                     }
                 }
             }
         }
+    }
+
+    if (showBottomSheet) {
+        ImageOptionsBottomSheet(
+            onDismiss = { showBottomSheet = false },
+            onTakePhoto = {
+                showBottomSheet = false
+                onTakePhoto()
+            },
+            onPickMultiple = {
+                showBottomSheet = false
+                onPickMultiple()
+            },
+            onRemoveAll = {
+                showBottomSheet = false
+                onRemoveAll()
+            }
+        )
     }
 }

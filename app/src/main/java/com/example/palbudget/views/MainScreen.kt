@@ -31,6 +31,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -55,21 +56,27 @@ import com.example.palbudget.ui.theme.PalBudgetTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    images: List<ImageWithAnalysis>,
-    onLoadImages: (List<ImageInfo>) -> Unit,
+    scanImages: List<ImageWithAnalysis>,
+    receipts: List<ImageWithAnalysis>,
     onTakePhoto: () -> Unit,
     onPickMultiple: () -> Unit,
-    onRemoveAll: () -> Unit,
-    onRemoveSelected: (List<ImageWithAnalysis>) -> Unit,
+    onRemoveAllScan: () -> Unit,
+    onRemoveSelectedScan: (List<ImageWithAnalysis>) -> Unit,
+    onRemoveSelectedReceipts: (List<ImageWithAnalysis>) -> Unit,
     onAnalyzeSelected: (Set<String>) -> Unit
 ) {
-    var currentPage by remember { mutableStateOf("receipts") }
+    var currentDestination by remember { mutableStateOf<NavDestination>(NavDestination.Scan) }
     var selectedImages by remember { mutableStateOf(setOf<String>()) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
 
     // Handle back button when images are selected
     BackHandler(enabled = selectedImages.isNotEmpty()) {
+        selectedImages = setOf()
+    }
+    
+    // Clear selection when switching destinations
+    LaunchedEffect(currentDestination) {
         selectedImages = setOf()
     }
     Scaffold(
@@ -107,14 +114,16 @@ fun MainScreen(
                                 expanded = showOverflowMenu,
                                 onDismissRequest = { showOverflowMenu = false }
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text("Analyze") },
-                                    onClick = {
-                                        showOverflowMenu = false
-                                        onAnalyzeSelected(selectedImages)
-                                        selectedImages = setOf()
-                                    }
-                                )
+                                if (currentDestination == NavDestination.Scan) {
+                                    DropdownMenuItem(
+                                        text = { Text("Analyze") },
+                                        onClick = {
+                                            showOverflowMenu = false
+                                            onAnalyzeSelected(selectedImages)
+                                            selectedImages = setOf()
+                                        }
+                                    )
+                                }
                                 DropdownMenuItem(
                                     text = { Text("Remove") },
                                     onClick = {
@@ -134,23 +143,40 @@ fun MainScreen(
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
+                    icon = { Text("📷") },
+                    label = { Text("Scan") },
+                    selected = currentDestination == NavDestination.Scan,
+                    onClick = { currentDestination = NavDestination.Scan }
+                )
+                NavigationBarItem(
                     icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = null) },
                     label = { Text("Receipts") },
-                    selected = currentPage == "receipts",
-                    onClick = { currentPage = "receipts" }
+                    selected = currentDestination == NavDestination.Receipts,
+                    onClick = { currentDestination = NavDestination.Receipts }
                 )
             }
         }
     ) { paddingValues ->
         Box(modifier = Modifier.padding(paddingValues)) {
-            when (currentPage) {
-                "receipts" -> ReceiptsScreen(
-                    images = images,
+            when (currentDestination) {
+                NavDestination.Scan -> ScanScreen(
+                    images = scanImages,
                     selectedImages = selectedImages,
-                    onLoadImages = onLoadImages,
                     onTakePhoto = onTakePhoto,
                     onPickMultiple = onPickMultiple,
-                    onRemoveAll = onRemoveAll,
+                    onRemoveAll = onRemoveAllScan,
+                    onImageSelected = { imageId, isSelected ->
+                        selectedImages = if (isSelected) {
+                            selectedImages + imageId
+                        } else {
+                            selectedImages - imageId
+                        }
+                    },
+                    isInSelectionMode = selectedImages.isNotEmpty()
+                )
+                NavDestination.Receipts -> ReceiptsScreen(
+                    receipts = receipts,
+                    selectedImages = selectedImages,
                     onImageSelected = { imageId, isSelected ->
                         selectedImages = if (isSelected) {
                             selectedImages + imageId
@@ -178,9 +204,17 @@ fun MainScreen(
                 Button(
                     onClick = {
                         showDeleteConfirmation = false
-                        // Remove selected images
-                        val imagesToRemove = images.filter { selectedImages.contains(it.imageInfo.uri) }
-                        onRemoveSelected(imagesToRemove)
+                        // Remove selected images based on current destination
+                        when (currentDestination) {
+                            NavDestination.Scan -> {
+                                val imagesToRemove = scanImages.filter { selectedImages.contains(it.imageInfo.uri) }
+                                onRemoveSelectedScan(imagesToRemove)
+                            }
+                            NavDestination.Receipts -> {
+                                val imagesToRemove = receipts.filter { selectedImages.contains(it.imageInfo.uri) }
+                                onRemoveSelectedReceipts(imagesToRemove)
+                            }
+                        }
                         selectedImages = setOf()
                     }
                 ) {
@@ -321,17 +355,17 @@ fun ImageOptionsBottomSheet(
 
 @Preview(showBackground = true)
 @Composable
-fun ReceiptsScreenPreview() {
+fun MainScreenPreview() {
     PalBudgetTheme {
-        ReceiptsScreen(
-            images = emptyList(),
-            selectedImages = setOf(),
-            onLoadImages = { },
+        MainScreen(
+            scanImages = emptyList(),
+            receipts = emptyList(),
             onTakePhoto = { },
             onPickMultiple = { },
-            onRemoveAll = { },
-            onImageSelected = { _, _ -> },
-            isInSelectionMode = false
+            onRemoveAllScan = { },
+            onRemoveSelectedScan = { },
+            onRemoveSelectedReceipts = { },
+            onAnalyzeSelected = { }
         )
     }
 }

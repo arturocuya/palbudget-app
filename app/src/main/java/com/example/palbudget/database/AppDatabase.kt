@@ -31,9 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "palbudget.db"
-                )
-                    .addCallback(SeedFromFileRepositoryCallback(context))
-                    .build()
+                ).build()
                 INSTANCE = instance
                 instance
             }

@@ -30,6 +30,16 @@ interface ImageDao {
     fun observeImagesWithAnalysis(): Flow<List<ImageWithAnalysisDb>>
 
     @Transaction
+    @Query("""
+        SELECT images.* FROM images 
+        INNER JOIN receipt_analysis ON receipt_analysis.imageUri = images.uri
+        ORDER BY 
+            CASE WHEN receipt_analysis.date IS NOT NULL THEN receipt_analysis.date ELSE images.dateCreated END DESC,
+            images.dateCreated DESC
+    """)
+    fun observeReceiptsWithAnalysis(): Flow<List<ImageWithAnalysisDb>>
+
+    @Transaction
     @Query("SELECT * FROM images WHERE uri = :uri")
     suspend fun getImage(uri: String): ImageWithAnalysisDb?
 

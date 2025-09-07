@@ -31,6 +31,13 @@ class RoomImageRepository(
             }
             .flowOn(ioDispatcher)
 
+    val receipts: Flow<List<ImageWithAnalysis>> =
+        dao.observeReceiptsWithAnalysis()
+            .map { dbList -> 
+                dbList.map { it.toDomain() }
+            }
+            .flowOn(ioDispatcher)
+
     suspend fun addImages(images: List<ImageInfo>) = withContext(ioDispatcher) {
         Log.d(TAG, "Adding ${images.size} images to database")
         dao.upsertImage(*images.toTypedArray())

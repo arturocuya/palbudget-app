@@ -37,7 +37,8 @@ fun ImageCard(
     imageWithAnalysis: ImageWithAnalysis,
     isSelected: Boolean = false,
     isInSelectionMode: Boolean = false,
-    onSelectionChanged: (Boolean) -> Unit = {}
+    onSelectionChanged: (Boolean) -> Unit = {},
+    showAnalysisIcon: Boolean = true
 ) {
     val imageInfo = imageWithAnalysis.imageInfo
     Card(
@@ -104,28 +105,30 @@ fun ImageCard(
                 }
             }
 
-            // Analysis status icon (bottom right)
-            imageWithAnalysis.analysis?.let { analysis ->
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(8.dp)
-                        .size(20.dp)
-                        .background(
-                            color = if (analysis.items.isNotEmpty())
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.error,
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (analysis.items.isNotEmpty()) Icons.Default.Check else Icons.Default.Close,
-                        contentDescription = if (analysis.items.isNotEmpty()) "Receipt detected" else "Not a receipt",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(12.dp)
-                    )
+            // Analysis status icon (bottom right) - only show if requested
+            if (showAnalysisIcon) {
+                imageWithAnalysis.analysis?.let { analysis ->
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(8.dp)
+                            .size(20.dp)
+                            .background(
+                                color = if (analysis.items.isNotEmpty())
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.error,
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (analysis.items.isNotEmpty()) Icons.Default.Check else Icons.Default.Close,
+                            contentDescription = if (analysis.items.isNotEmpty()) "Receipt detected" else "Not a receipt",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
                 }
             }
         }
