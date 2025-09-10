@@ -52,6 +52,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.palbudget.R
@@ -271,7 +272,7 @@ fun ImageOptionsBottomSheet(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Take photo",
+                        text = stringResource(R.string.take_photo),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -292,7 +293,7 @@ fun ImageOptionsBottomSheet(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Choose from gallery",
+                        text = stringResource(R.string.choose_from_gallery),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -337,7 +338,7 @@ fun SelectedImagesBottomSheet(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Select all",
+                    text = stringResource(R.string.select_all),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -359,7 +360,7 @@ fun SelectedImagesBottomSheet(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Analyze",
+                        text = stringResource(R.string.analyze),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -381,7 +382,7 @@ fun SelectedImagesBottomSheet(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Remove",
+                    text = stringResource(R.string.remove),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )

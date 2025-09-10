@@ -84,9 +84,10 @@ fun ScanScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "📷",
-                            style = MaterialTheme.typography.displayLarge
+                        Icon(
+                            painter = painterResource(id = R.drawable.receipt_long_off_24px),
+                            modifier = Modifier.size(64.dp),
+                            contentDescription = "Add receipts"
                         )
                         Text(
                             text = LocalContext.current.getString(R.string.no_images_yet),

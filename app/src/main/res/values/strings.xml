@@ -9,7 +9,7 @@
     
     <!-- UI Text -->
     <string name="no_images_yet">No receipts yet</string>
-    <string name="tap_camera_button_to_add">Tap the camera button to add receipts</string>
+    <string name="tap_camera_button_to_add">Tap the + button to add receipts</string>
     <string name="selected_image">Selected receipt</string>
     <string name="add_photos">Add receipts</string>
     <string name="take_photo">Scan receipt</string>
@@ -24,4 +24,17 @@
     <string name="remove_all_images_button">Remove all receipts</string>
     <string name="remove">Remove</string>
     <string name="cancel">Cancel</string>
+    
+    <string name="no_receipts_yet">No receipts yet</string>
+    <string name="scan_receipts_hint">Scan some receipts to see them here</string>
+    <string name="receipt_details">Receipt Details</string>
+    <string name="category_label">Category:</string>
+    <string name="date_label">Date:</string>
+    <string name="total_label">Total:</string>
+    <string name="items_count">Items (%d)</string>
+    
+    <string name="select_all">Select all</string>
+    <string name="analyze">Analyze</string>
+    
+    <string name="checkmark">✓</string>
 </resources>
