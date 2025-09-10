@@ -69,7 +69,8 @@ fun MainScreen(
     onRemoveSelectedScan: (List<ImageWithAnalysis>) -> Unit,
     onRemoveSelectedReceipts: (List<ImageWithAnalysis>) -> Unit,
     onAnalyzeSelected: (Set<String>) -> Unit,
-    isAnalyzing: Boolean = false
+    isAnalyzing: Boolean = false,
+    onOpenImage: (String) -> Unit
 ) {
     var currentDestination by remember { mutableStateOf<NavDestination>(NavDestination.Scan) }
     var selectedImages by remember { mutableStateOf(setOf<String>()) }
@@ -133,6 +134,7 @@ fun MainScreen(
                     )
                     NavDestination.Receipts -> ReceiptsScreen(
                         receipts = receipts,
+                        onOpenImage = onOpenImage
                     )
                 }
                 
@@ -400,7 +402,8 @@ fun MainScreenPreview() {
             onRemoveAllScan = { },
             onRemoveSelectedScan = { },
             onRemoveSelectedReceipts = { },
-            onAnalyzeSelected = { }
+            onAnalyzeSelected = { },
+            onOpenImage = { }
         )
     }
 }

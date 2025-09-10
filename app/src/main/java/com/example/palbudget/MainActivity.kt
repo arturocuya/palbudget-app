@@ -1,5 +1,6 @@
 package com.example.palbudget
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -11,6 +12,14 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.content.FileProvider
+import androidx.core.net.toUri
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 import com.example.palbudget.ui.theme.PalBudgetTheme
 import com.example.palbudget.utils.ImageUtils
 import com.example.palbudget.viewmodel.ImageWithAnalysis
@@ -49,7 +58,8 @@ class MainActivity : ComponentActivity() {
                         imageWithAnalysisList.forEach { receiptsViewModel.removeReceipt(it) }
                     },
                     onAnalyzeSelected = ::analyzeSelectedImages,
-                    isAnalyzing = scanViewModel.isAnalyzing
+                    isAnalyzing = scanViewModel.isAnalyzing,
+                    onOpenImage = ::openImageInExternalApp
                 )
             }
         }
@@ -136,6 +146,51 @@ class MainActivity : ComponentActivity() {
         scanViewModel.analyzeSelected(this, selectedImagesUris)
     }
 
+    private fun openImageInExternalApp(imageUri: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d("DebugOpenImg", "Original URI: $imageUri")
+                val originalUri = imageUri.toUri()
+                
+                // Copy image to cache directory
+                val cacheDir = File(cacheDir, "shared_images")
+                if (!cacheDir.exists()) {
+                    cacheDir.mkdirs()
+                }
+                
+                val fileName = "shared_image_${System.currentTimeMillis()}.jpg"
+                val tempFile = File(cacheDir, fileName)
+                
+                contentResolver.openInputStream(originalUri)?.use { inputStream ->
+                    FileOutputStream(tempFile).use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                
+                Log.d("DebugOpenImg", "Image copied to: ${tempFile.absolutePath}")
+                
+                // Create shareable URI using FileProvider
+                val shareableUri = FileProvider.getUriForFile(
+                    this@MainActivity,
+                    "${packageName}.fileprovider",
+                    tempFile
+                )
+                
+                withContext(Dispatchers.Main) {
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(shareableUri, "image/*")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    
+                    val chooser = Intent.createChooser(intent, "View Image")
+                    Log.d("DebugOpenImg", "Starting activity with FileProvider URI")
+                    startActivity(chooser)
+                }
+            } catch (e: Exception) {
+                Log.e("DebugOpenImg", "Error copying and opening image: ${e.message}", e)
+            }
+        }
+    }
 
 }
 

@@ -1,5 +1,6 @@
 package com.example.palbudget.views
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
-
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -163,6 +163,7 @@ private fun groupReceipts(receipts: List<ImageWithAnalysis>): Map<String, List<I
 @Composable
 fun ReceiptsScreen(
     receipts: List<ImageWithAnalysis>,
+    onOpenImage: (String) -> Unit
 ) {
     // NOTE: This screen only shows analyzed receipts from the database
     // No scanning functionality - that's handled by ScanScreen
@@ -285,7 +286,8 @@ fun ReceiptsScreen(
                 dragHandle = { BottomSheetDefaults.DragHandle() }
             ) {
                 ReceiptAnalysisBottomSheet(
-                    imageWithAnalysis = receipt
+                    imageWithAnalysis = receipt,
+                    onOpenImage = onOpenImage
                 )
             }
         }
@@ -294,7 +296,8 @@ fun ReceiptsScreen(
 
 @Composable
 fun ReceiptAnalysisBottomSheet(
-    imageWithAnalysis: ImageWithAnalysis
+    imageWithAnalysis: ImageWithAnalysis,
+    onOpenImage: (String) -> Unit
 ) {
     val analysis = imageWithAnalysis.analysis!!
     Column(
@@ -408,7 +411,11 @@ fun ReceiptAnalysisBottomSheet(
         AsyncImage(
             model = imageWithAnalysis.imageInfo.uri.toUri(),
             contentDescription = "Receipt image",
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onOpenImage(imageWithAnalysis.imageInfo.uri)
+                },
             contentScale = ContentScale.FillWidth
         )
 
