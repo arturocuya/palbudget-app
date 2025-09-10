@@ -133,15 +133,6 @@ fun MainScreen(
                     )
                     NavDestination.Receipts -> ReceiptsScreen(
                         receipts = receipts,
-                        selectedImages = selectedImages,
-                        onImageSelected = { imageId, isSelected ->
-                            selectedImages = if (isSelected) {
-                                selectedImages + imageId
-                            } else {
-                                selectedImages - imageId
-                            }
-                        },
-                        isInSelectionMode = selectedImages.isNotEmpty()
                     )
                 }
                 

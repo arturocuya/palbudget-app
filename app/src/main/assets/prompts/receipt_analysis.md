@@ -14,7 +14,7 @@ For each image provided, you must:
 
 3. **If it's not a receipt**, simply mark `is_receipt: false` and skip the analysis
 
-Please respond using the JSON schema format defined in the receipt_analysis_schema.json file. Each image should be analyzed in the order provided, with results indexed starting from 0.
+Each image should be analyzed in the order provided, with results indexed starting from 0.
 
 **IMPORTANT**: For each image result, you MUST include both the `image_index` (0-based) AND the exact `image_uri` ID from the list below (e.g., "IMG_0_ABC12345"). This ensures proper correlation between results and source images.
 

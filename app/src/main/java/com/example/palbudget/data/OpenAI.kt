@@ -6,8 +6,7 @@ import kotlinx.serialization.json.JsonElement
 
 @Serializable
 data class OpenAIRequest(
-    val model: String = "gpt-4o",
-    val temperature: Int = 0,
+    val model: String = "gpt-5-nano",
     val messages: List<Message>,
     @SerialName("response_format")
     val responseFormat: ResponseFormat
@@ -29,7 +28,8 @@ data class Content(
 
 @Serializable
 data class ImageUrl(
-    val url: String
+    val url: String,
+    val detail: String = "high",
 )
 
 @Serializable

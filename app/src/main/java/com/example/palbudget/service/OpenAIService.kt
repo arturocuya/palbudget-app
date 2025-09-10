@@ -138,7 +138,7 @@ class OpenAIService(private val context: Context) {
             context.assets.open("prompts/receipt_analysis.md").bufferedReader().readText()
         } catch (e: Exception) {
             Log.w(TAG, "Could not load prompt from assets, using default", e)
-            "Analyze these receipt images and provide insights. u like jazz? (eyes you)"
+            ""
         }
     }
     

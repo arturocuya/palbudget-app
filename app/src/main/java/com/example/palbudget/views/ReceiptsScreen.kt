@@ -104,7 +104,12 @@ private fun categorizeReceipt(receipt: ImageWithAnalysis): GroupedReceipt {
             val monthYear = if (receiptDate.year == today.year) {
                 receiptDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
             } else {
-                "${receiptDate.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${receiptDate.year}"
+                "${
+                    receiptDate.month.getDisplayName(
+                        TextStyle.FULL,
+                        Locale.getDefault()
+                    )
+                } ${receiptDate.year}"
             }
             GroupedReceipt(TimeGroup.OLDER, monthYear, receipt)
         }
@@ -158,14 +163,11 @@ private fun groupReceipts(receipts: List<ImageWithAnalysis>): Map<String, List<I
 @Composable
 fun ReceiptsScreen(
     receipts: List<ImageWithAnalysis>,
-    selectedImages: Set<String>,
-    onImageSelected: (String, Boolean) -> Unit,
-    isInSelectionMode: Boolean = false
 ) {
     // NOTE: This screen only shows analyzed receipts from the database
     // No scanning functionality - that's handled by ScanScreen
 
-    var selectedReceiptForAnalysis by remember { mutableStateOf<ImageWithAnalysis?>(null) }
+    var selectedReceipt by remember { mutableStateOf<ImageWithAnalysis?>(null) }
 
     Scaffold(
         modifier = Modifier.fillMaxSize()
@@ -249,23 +251,14 @@ fun ReceiptsScreen(
                                             ) {
                                                 ImageCard(
                                                     imageWithAnalysis = imageWithAnalysis,
-                                                    isSelected = selectedImages.contains(
-                                                        imageWithAnalysis.imageInfo.uri
-                                                    ),
-                                                    isInSelectionMode = isInSelectionMode,
-                                                    onSelectionChanged = { isSelected ->
-                                                        onImageSelected(
-                                                            imageWithAnalysis.imageInfo.uri,
-                                                            isSelected
-                                                        )
-                                                    },
+                                                    isSelected = false,
+                                                    isInSelectionMode = false,
+                                                    onSelectionChanged = {},
                                                     showAnalysisIcon = false,
-                                                    onImageClick = if (!isInSelectionMode) {
-                                                        {
-                                                            selectedReceiptForAnalysis =
-                                                                imageWithAnalysis
-                                                        }
-                                                    } else null
+                                                    onImageClick = {
+                                                        selectedReceipt =
+                                                            imageWithAnalysis
+                                                    }
                                                 )
                                             }
                                         }
@@ -285,10 +278,10 @@ fun ReceiptsScreen(
     }
 
     // Analysis details bottom sheet
-    selectedReceiptForAnalysis?.let { receipt ->
+    selectedReceipt?.let { receipt ->
         receipt.analysis?.let { analysis ->
             ModalBottomSheet(
-                onDismissRequest = { selectedReceiptForAnalysis = null },
+                onDismissRequest = { selectedReceipt = null },
                 dragHandle = { BottomSheetDefaults.DragHandle() }
             ) {
                 ReceiptAnalysisBottomSheet(

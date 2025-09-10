@@ -117,7 +117,7 @@ fun ImageCard(
                             .padding(8.dp)
                             .size(20.dp)
                             .background(
-                                color = if (analysis.items.isNotEmpty())
+                                color = if (analysis.date != "")
                                     MaterialTheme.colorScheme.primary
                                 else
                                     MaterialTheme.colorScheme.error,
