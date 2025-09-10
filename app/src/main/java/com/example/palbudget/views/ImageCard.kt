@@ -127,7 +127,7 @@ fun ImageCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (analysis.items.isNotEmpty()) Icons.Default.Check else Icons.Default.Close,
+                            imageVector = if (analysis.date != "") Icons.Default.Check else Icons.Default.Close,
                             contentDescription = if (analysis.items.isNotEmpty()) "Receipt detected" else "Not a receipt",
                             tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(12.dp)

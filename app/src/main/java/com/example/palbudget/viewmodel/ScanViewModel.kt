@@ -15,11 +15,16 @@ import com.example.palbudget.service.ImageAnalysis
 import com.example.palbudget.service.OpenAIService
 import com.example.palbudget.utils.ImageUtils
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 
 class ScanViewModel(application: Application) : BaseImageViewModel(application) {
 
     companion object {
         private const val TAG = "ScanViewModel"
+        private const val MAX_CONCURRENT_ANALYSIS = 3
     }
 
     private val _images = mutableStateListOf<ImageWithAnalysis>()
@@ -27,6 +32,8 @@ class ScanViewModel(application: Application) : BaseImageViewModel(application) 
     
     private val _isAnalyzing = mutableStateOf(false)
     val isAnalyzing: Boolean get() = _isAnalyzing.value
+    
+    private val imagesMutex = Mutex()
 
     fun addImages(newImages: List<ImageInfo>) {
         Log.d(TAG, "Adding ${newImages.size} images to scan list")
@@ -59,78 +66,97 @@ class ScanViewModel(application: Application) : BaseImageViewModel(application) 
             return
         }
 
-        Log.d(TAG, "Analyzing ${selectedImages.size} images")
+        Log.d(TAG, "Analyzing ${selectedImages.size} images in parallel")
+        onToast("Analyzing ${selectedImages.size} image(s)...")
 
-        // Get original URIs
-        val originalUris = selectedImages.map { it.imageInfo.uri }
-
-        // Convert image URIs to base64 format
-        val imageBase64List = selectedImages.mapNotNull { imageWithAnalysis ->
-            ImageUtils.uriToBase64(context, imageWithAnalysis.imageInfo.uri.toUri())
-        }
-
-        if (imageBase64List.isEmpty()) {
-            onToast("Failed to convert images to base64")
-            return
-        }
-
-        // Show loading toast
-        onToast("Analyzing ${imageBase64List.size} image(s)...")
-
-        // Launch analysis coroutine
         viewModelScope.launch {
             _isAnalyzing.value = true
+            
+            val results = mutableListOf<ImageAnalysis>()
             val openAIService = OpenAIService(context)
-            val result = openAIService.analyzeReceipts(imageBase64List, originalUris)
-
-            // Process analysis results
-            if (result.success) {
-                // Process each analysis result
-                result.results.forEach { imageAnalysis ->
-                    val originalUri = if (imageAnalysis.imageIndex < originalUris.size) {
-                        originalUris[imageAnalysis.imageIndex]
-                    } else null
-
-                    if (originalUri != null) {
-                        val imageIndex = _images.indexOfFirst { it.imageInfo.uri == originalUri }
-                        if (imageIndex != -1) {
-                            val currentImage = _images[imageIndex]
-
-                            if (imageAnalysis.isReceipt && imageAnalysis.analysis != null) {
-                                Log.d(TAG, "Receipt detected, saving to database and showing ✅: $originalUri")
-                                // Save to database
-                                repository.addImages(listOf(currentImage.imageInfo))
-                                repository.updateAnalysis(originalUri, imageAnalysis.analysis)
-                                // Update scan list with actual analysis to show ✅
-                                _images[imageIndex] = ImageWithAnalysis(
-                                    currentImage.imageInfo,
-                                    imageAnalysis.analysis
-                                )
-                            } else if (!imageAnalysis.isReceipt) {
-                                Log.d(TAG, "Non-receipt detected, showing ❌: $originalUri")
-                                // Update scan list with placeholder analysis to show ❌
-                                val placeholderAnalysis = ReceiptAnalysis(
-                                    items = emptyList(),
-                                    category = "",
-                                    finalPrice = 0,
-                                    date = null
-                                )
-                                _images[imageIndex] = ImageWithAnalysis(
-                                    currentImage.imageInfo,
-                                    placeholderAnalysis
-                                )
-                            }
-                        }
+            
+            // Process images in parallel with concurrency limit
+            selectedImages.chunked(MAX_CONCURRENT_ANALYSIS).forEachIndexed { chunkIndex, chunk ->
+                val deferreds = chunk.mapIndexed { imageIndex, imageWithAnalysis ->
+                    async(Dispatchers.IO) {
+                        val globalIndex = chunkIndex * MAX_CONCURRENT_ANALYSIS + imageIndex
+                        analyzeSingleImage(context, imageWithAnalysis, openAIService, globalIndex)
                     }
                 }
-
-                val summary = buildAnalysisSummary(result.results)
-                onToast(summary)
-            } else {
-                val errorMessage = result.error ?: "Unknown error occurred"
-                onToast("Analysis failed: $errorMessage")
+                
+                deferreds.forEachIndexed { deferredIndex, deferred ->
+                    val result = deferred.await()
+                    if (result != null) {
+                        results.add(result)
+                        val globalImageIndex = chunkIndex * MAX_CONCURRENT_ANALYSIS + deferredIndex
+                        updateImageState(result, globalImageIndex, selectedImages)
+                    }
+                }
             }
+
+            val summary = buildAnalysisSummary(results)
+            onToast(summary)
             _isAnalyzing.value = false
+        }
+    }
+
+    private suspend fun analyzeSingleImage(
+        context: Context,
+        imageWithAnalysis: ImageWithAnalysis,
+        openAIService: OpenAIService,
+        imageIndex: Int
+    ): ImageAnalysis? {
+        val imageBase64 = ImageUtils.uriToBase64(context, imageWithAnalysis.imageInfo.uri.toUri())
+            ?: return null
+        
+        val result = openAIService.analyzeReceipts(
+            listOf(imageBase64), 
+            listOf(imageWithAnalysis.imageInfo.uri)
+        )
+        
+        return if (result.success && result.results.isNotEmpty()) {
+            result.results.first()
+        } else {
+            Log.d(TAG, "Failed to analyze image: ${imageWithAnalysis.imageInfo.uri}")
+            null
+        }
+    }
+    
+    private suspend fun updateImageState(imageAnalysis: ImageAnalysis, originalImageIndex: Int, selectedImages: List<ImageWithAnalysis>) {
+        imagesMutex.withLock {
+            if (originalImageIndex < selectedImages.size) {
+                val targetImage = selectedImages[originalImageIndex]
+                val imageIndex = _images.indexOfFirst { it === targetImage }
+                
+                if (imageIndex != -1) {
+                    val currentImage = _images[imageIndex]
+                
+                    if (imageAnalysis.isReceipt && imageAnalysis.analysis != null) {
+                        Log.d(TAG, "Receipt detected, saving to database and showing ✅: ${currentImage.imageInfo.uri}")
+                        // Save to database - use the original URI, not the transformed one
+                        repository.addImages(listOf(currentImage.imageInfo))
+                        repository.updateAnalysis(currentImage.imageInfo.uri, imageAnalysis.analysis)
+                        // Update scan list with actual analysis to show ✅
+                        _images[imageIndex] = ImageWithAnalysis(
+                            currentImage.imageInfo,
+                            imageAnalysis.analysis
+                        )
+                    } else if (!imageAnalysis.isReceipt) {
+                        Log.d(TAG, "Non-receipt detected, showing ❌: ${currentImage.imageInfo.uri}")
+                        // Update scan list with placeholder analysis to show ❌
+                        val placeholderAnalysis = ReceiptAnalysis(
+                            items = emptyList(),
+                            category = "",
+                            finalPrice = 0,
+                            date = null
+                        )
+                        _images[imageIndex] = ImageWithAnalysis(
+                            currentImage.imageInfo,
+                            placeholderAnalysis
+                        )
+                    }
+                }
+            }
         }
     }
 
