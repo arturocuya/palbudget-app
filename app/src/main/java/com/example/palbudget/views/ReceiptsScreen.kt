@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -234,46 +236,23 @@ fun ReceiptsScreen(
                         }
 
                         item(key = "grid_$sectionTitle") {
-                            val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-                            val minItemWidth = 110.dp
-                            val spacing = 8.dp
-                            val padding = 32.dp // Account for LazyColumn padding
-                            val itemsPerRow =
-                                ((screenWidth - padding) / (minItemWidth + spacing)).toInt()
-                                    .coerceAtLeast(1)
-
-                            val rows = sectionReceipts.chunked(itemsPerRow)
-
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(3),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.height(((sectionReceipts.size / 3) + if (sectionReceipts.size % 3 > 0) 1 else 0).times(150).dp)
                             ) {
-                                rows.forEach { rowItems ->
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        rowItems.forEach { imageWithAnalysis ->
-                                            Box(
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                ImageCard(
-                                                    imageWithAnalysis = imageWithAnalysis,
-                                                    isSelected = false,
-                                                    isInSelectionMode = false,
-                                                    onSelectionChanged = {},
-                                                    showAnalysisIcon = false,
-                                                    onImageClick = {
-                                                        selectedReceipt =
-                                                            imageWithAnalysis
-                                                    }
-                                                )
-                                            }
+                                items(sectionReceipts) { imageWithAnalysis ->
+                                    ImageCard(
+                                        imageWithAnalysis = imageWithAnalysis,
+                                        isSelected = false,
+                                        isInSelectionMode = false,
+                                        onSelectionChanged = {},
+                                        showAnalysisIcon = false,
+                                        onImageClick = {
+                                            selectedReceipt = imageWithAnalysis
                                         }
-                                        // Fill remaining space if row is not complete
-                                        repeat(itemsPerRow - rowItems.size) {
-                                            Spacer(modifier = Modifier.weight(1f))
-                                        }
-                                    }
+                                    )
                                 }
                             }
                             Spacer(modifier = Modifier.height(24.dp))
