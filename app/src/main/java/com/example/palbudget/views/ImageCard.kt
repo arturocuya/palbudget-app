@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -23,8 +24,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
@@ -74,8 +77,8 @@ fun ImageCard(
                         }
                     ),
                 contentScale = ContentScale.Crop,
-                error = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_report_image),
-                placeholder = androidx.compose.ui.res.painterResource(android.R.drawable.ic_menu_gallery)
+                error = painterResource(android.R.drawable.ic_menu_report_image),
+                placeholder = painterResource(android.R.drawable.ic_menu_gallery)
             )
 
             // Selection indicator
@@ -107,6 +110,25 @@ fun ImageCard(
                         style = MaterialTheme.typography.labelMedium
                     )
                 }
+            }
+
+            // Category color circle (bottom right)
+            imageWithAnalysis.analysis?.let { analysis ->
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 8.dp, end = 8.dp)
+                        .size(16.dp)
+                        .background(
+                            color = Color(analysis.category.color),
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 2.dp,
+                            color = Color.White,
+                            shape = CircleShape
+                        )
+                )
             }
 
             // Analysis status icon (bottom right) - only show if requested
