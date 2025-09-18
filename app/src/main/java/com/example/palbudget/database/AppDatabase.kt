@@ -13,7 +13,7 @@ import com.example.palbudget.data.ReceiptAnalysisEntity
 import com.example.palbudget.data.ReceiptItemEntity
 
 @Database(
-    version = 2,
+    version = 3,
     entities = [
         ImageInfo::class,
         ReceiptAnalysisEntity::class,
@@ -53,6 +53,7 @@ abstract class AppDatabase : RoomDatabase() {
                         imageUri TEXT NOT NULL PRIMARY KEY,
                         category_name TEXT NOT NULL,
                         category_color INTEGER NOT NULL,
+                        category_description TEXT,
                         finalPrice INTEGER NOT NULL,
                         date TEXT,
                         FOREIGN KEY(imageUri) REFERENCES images(uri) ON DELETE CASCADE
@@ -61,8 +62,8 @@ abstract class AppDatabase : RoomDatabase() {
 
                 // Copy data to new table
                 db.execSQL("""
-                    INSERT INTO receipt_analysis_new (imageUri, category_name, category_color, finalPrice, date)
-                    SELECT imageUri, category_name, category_color, finalPrice, date FROM receipt_analysis
+                    INSERT INTO receipt_analysis_new (imageUri, category_name, category_color, category_description, finalPrice, date)
+                    SELECT imageUri, category_name, category_color, NULL, finalPrice, date FROM receipt_analysis
                 """.trimIndent())
 
                 // Drop old table and rename new one
@@ -71,6 +72,13 @@ abstract class AppDatabase : RoomDatabase() {
                 
                 // Recreate the index on the final table
                 db.execSQL("CREATE INDEX index_receipt_analysis_imageUri ON receipt_analysis(imageUri)")
+            }
+        }
+
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add description column to existing category_description field
+                db.execSQL("ALTER TABLE receipt_analysis ADD COLUMN category_description TEXT")
             }
         }
         @Volatile
@@ -82,7 +90,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "palbudget.db"
-                ).addMigrations(MIGRATION_1_2).build()
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
                 INSTANCE = instance
                 instance
             }
