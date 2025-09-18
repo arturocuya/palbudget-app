@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,23 +23,33 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.core.net.toUri
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 import com.example.palbudget.R
+import com.example.palbudget.data.ReceiptCategory
 import com.example.palbudget.viewmodel.ImageWithAnalysis
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -57,6 +68,11 @@ data class GroupedReceipt(
     val timeGroup: TimeGroup,
     val monthYear: String? = null,
     val receipt: ImageWithAnalysis
+)
+
+data class CategorySpending(
+    val category: ReceiptCategory,
+    val totalSpent: Int
 )
 
 private fun parseReceiptDate(dateString: String?): LocalDate? {
@@ -166,6 +182,85 @@ private fun groupReceipts(receipts: List<ImageWithAnalysis>): Map<String, List<I
     }
 }
 
+private fun calculateCategorySpending(receipts: List<ImageWithAnalysis>): List<CategorySpending> {
+    val analysesWithCategories = receipts.mapNotNull { receipt ->
+        receipt.analysis
+    }
+    
+    val categoryTotals = analysesWithCategories
+        .groupBy { it.category }
+        .mapValues { (category, analyses) -> 
+            val total = analyses.sumOf { it.finalPrice }
+            total
+        }
+        .map { (category, total) -> CategorySpending(category, total) }
+        .sortedByDescending { it.totalSpent }
+
+    return categoryTotals
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategorySpendingBar(
+    categorySpending: List<CategorySpending>,
+    modifier: Modifier = Modifier
+) {
+    if (categorySpending.isEmpty()) {
+        return
+    }
+    
+    val scope = rememberCoroutineScope()
+    val totalSpent = categorySpending.sumOf { it.totalSpent }
+    var selectedCategory by remember { mutableStateOf<CategorySpending?>(null) }
+    val tooltipState = rememberTooltipState()
+    
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = {
+            selectedCategory?.let { category ->
+                PlainTooltip {
+                    Text(
+                        text = "${category.category.name.uppercase()}: $${category.totalSpent / 100.0}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        state = tooltipState
+    ) {
+        Row(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            categorySpending.forEach { spending ->
+                val percentage = spending.totalSpent.toFloat() / totalSpent.toFloat()
+                
+                Button(
+                    onClick = { 
+                        selectedCategory = spending
+                        scope.launch {
+                            if (tooltipState.isVisible) {
+                                tooltipState.dismiss()
+                            } else {
+                                tooltipState.show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(spending.category.color)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(12.dp)
+                        .weight(percentage)
+                ) {
+                    // Empty button content
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReceiptsScreen(
@@ -219,20 +314,28 @@ fun ReceiptsScreen(
             val groupedReceipts = groupReceipts(receipts)
 
             LazyColumn(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 groupedReceipts.forEach { (sectionTitle, sectionReceipts) ->
                     if (sectionReceipts.isNotEmpty()) {
                         item(key = "header_$sectionTitle") {
-                            Text(
-                                text = sectionTitle,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
+                            Column {
+                                Text(
+                                    text = sectionTitle,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                
+                                val categorySpending = calculateCategorySpending(sectionReceipts)
+                                CategorySpendingBar(
+                                    categorySpending = categorySpending,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                            }
                         }
 
                         item(key = "grid_$sectionTitle") {
