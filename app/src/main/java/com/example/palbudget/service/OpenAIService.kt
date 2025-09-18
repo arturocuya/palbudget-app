@@ -3,9 +3,10 @@ package com.example.palbudget.service
 import android.content.Context
 import android.util.Log
 import com.example.palbudget.data.Content
-import com.example.palbudget.data.ReceiptItem
+import com.example.palbudget.data.CategoryDefaults
 import com.example.palbudget.data.ReceiptAnalysis
 import com.example.palbudget.data.ImageUrl
+import com.example.palbudget.data.toDomain
 import com.example.palbudget.data.JsonSchemaWrapper
 import com.example.palbudget.data.Message
 import com.example.palbudget.data.OpenAIRequest
@@ -64,7 +65,8 @@ class OpenAIService(private val context: Context) {
             }
             
             val basePrompt = loadPromptFromAssets()
-            val fullPrompt = appendImageUrisToPrompt(basePrompt, originalUris)
+            val templatedPrompt = materializePrompt(basePrompt)
+            val fullPrompt = appendImageUrisToPrompt(templatedPrompt, originalUris)
             val requestBodyResult = buildRequestBody(fullPrompt, imageBase64List)
             
             if (requestBodyResult.isFailure) {
@@ -142,6 +144,11 @@ class OpenAIService(private val context: Context) {
         }
     }
     
+    private fun materializePrompt(rawPrompt: String): String {
+        val categories = CategoryDefaults.defaultCategories.joinToString(", ") { it.name }
+        return rawPrompt.replace("\$categories", categories)
+    }
+    
     private fun appendImageUrisToPrompt(basePrompt: String, imageUris: List<String>): String {
         val uriList = imageUris.mapIndexed { index, uri ->
             val shortId = "IMG_${index}_${uri.hashCode().toString().takeLast(8)}"
@@ -182,7 +189,8 @@ class OpenAIService(private val context: Context) {
     
     private fun createResponseFormat(): ResponseFormat {
         val schemaString = loadSchemaFromAssets()
-        val schemaElement = json.parseToJsonElement(schemaString)
+        val templatedSchema = materializeSchema(schemaString)
+        val schemaElement = json.parseToJsonElement(templatedSchema)
         
         return ResponseFormat(
             jsonSchema = JsonSchemaWrapper(schema = schemaElement)
@@ -196,6 +204,11 @@ class OpenAIService(private val context: Context) {
             Log.e(TAG, "Could not load schema from assets", e)
             throw e
         }
+    }
+    
+    private fun materializeSchema(rawSchema: String): String {
+        val categoryList = CategoryDefaults.defaultCategories.joinToString(",") { "\"${it.name}\"" }
+        return rawSchema.replace("\$categories", categoryList)
     }
     
     private fun parseSuccessResponse(responseBody: String, originalImageUris: List<String>): AnalysisResult {
@@ -213,16 +226,7 @@ class OpenAIService(private val context: Context) {
             val structuredResponse = json.decodeFromString<StructuredResponse>(contentString)
             
             val imageAnalyses = structuredResponse.results.map { result ->
-                val analysis = result.analysis?.let { analysisResponse ->
-                    ReceiptAnalysis(
-                        items = analysisResponse.items.map { item ->
-                            ReceiptItem(name = item.name, price = item.price)
-                        },
-                        category = analysisResponse.category,
-                        finalPrice = analysisResponse.finalPrice,
-                        date = analysisResponse.date
-                    )
-                }
+                val analysis = result.analysis?.toDomain()
                 
                 val imageAnalysis = ImageAnalysis(
                     imageIndex = result.imageIndex,
@@ -246,7 +250,7 @@ class OpenAIService(private val context: Context) {
                 Log.d(TAG, "  Full URI: ${if (result.imageIndex < originalImageUris.size) originalImageUris[result.imageIndex] else "Index out of bounds"}")
                 Log.d(TAG, "  Is Receipt: ${result.isReceipt}")
                 if (analysis != null) {
-                    Log.d(TAG, "  Category: ${analysis.category}")
+                    Log.d(TAG, "  Category: ${analysis.category.name}")
                     Log.d(TAG, "  Date: ${analysis.date ?: "Not available"}")
                     Log.d(TAG, "  Final Price: $${analysis.finalPrice / 100.0}")
                     Log.d(TAG, "  Items (${analysis.items.size}):")

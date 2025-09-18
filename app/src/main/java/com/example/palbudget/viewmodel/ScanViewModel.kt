@@ -11,12 +11,14 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewModelScope
 import com.example.palbudget.data.ImageInfo
 import com.example.palbudget.data.ReceiptAnalysis
+import com.example.palbudget.data.ReceiptCategory
 import com.example.palbudget.service.ImageAnalysis
 import com.example.palbudget.service.OpenAIService
 import com.example.palbudget.utils.ImageUtils
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 
@@ -94,8 +96,6 @@ class ScanViewModel(application: Application) : BaseImageViewModel(application) 
                 }
             }
 
-            val summary = buildAnalysisSummary(results)
-            onToast(summary)
             _isAnalyzing.value = false
         }
     }
@@ -117,6 +117,14 @@ class ScanViewModel(application: Application) : BaseImageViewModel(application) 
         return if (result.success && result.results.isNotEmpty()) {
             result.results.first()
         } else {
+            if (!result.success) {
+                // Show error to user via toast on main thread
+                result.error?.let { errorMessage ->
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Analysis failed: $errorMessage", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
             Log.d(TAG, "Failed to analyze image: ${imageWithAnalysis.imageInfo.uri}")
             null
         }
@@ -146,7 +154,7 @@ class ScanViewModel(application: Application) : BaseImageViewModel(application) 
                         // Update scan list with placeholder analysis to show ❌
                         val placeholderAnalysis = ReceiptAnalysis(
                             items = emptyList(),
-                            category = "",
+                            category = ReceiptCategory("Not a receipt", 0),
                             finalPrice = 0,
                             date = null
                         )
@@ -173,7 +181,7 @@ class ScanViewModel(application: Application) : BaseImageViewModel(application) 
 
             receipts.forEach { result ->
                 result.analysis?.let { analysis ->
-                    summary.append("• ${analysis.category.uppercase()}: $${analysis.finalPrice / 100.0}\n")
+                    summary.append("• ${analysis.category.name.uppercase()}: $${analysis.finalPrice / 100.0}\n")
                     summary.append("  Date: ${analysis.date ?: "Not available"}\n")
                     summary.append("  ${analysis.items.size} item(s)\n")
                 }

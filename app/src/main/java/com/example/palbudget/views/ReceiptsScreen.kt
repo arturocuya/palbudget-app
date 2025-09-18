@@ -332,7 +332,7 @@ fun ReceiptAnalysisBottomSheet(
                 fontWeight = FontWeight.Medium
             )
             Text(
-                text = analysis.category.uppercase(),
+                text = analysis.category.name.uppercase(),
                 style = MaterialTheme.typography.bodyMedium
             )
         }

@@ -36,7 +36,7 @@
               },
               "category": {
                 "type": "string",
-                "enum": ["groceries", "health", "entertainment", "restaurant"]
+                "enum": [$categories]
               },
               "final_price": {
                 "type": "integer"

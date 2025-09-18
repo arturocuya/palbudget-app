@@ -8,7 +8,7 @@ For each image provided, you must:
 
 2. **If it is a receipt**, extract the following information:
    - **Items**: For each item purchased, extract the name (string) and price (integer in cents)
-   - **Category**: Classify the receipt into one of: groceries, health, entertainment, restaurant
+   - **Category**: Classify the receipt into one of: $categories
    - **Final price**: The total amount after taxes (integer in cents)
    - **Date**: The date on the receipt in ISO 8601 format (YYYY-MM-DD). If the date is not visible, unclear, or missing, return null. Take extra consideration when analyzing this. Think really hard. Also, the usual format for dates is day/month/year
 

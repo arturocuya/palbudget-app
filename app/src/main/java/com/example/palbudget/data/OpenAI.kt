@@ -75,5 +75,5 @@ data class ImageAnalysisResponse(
     val imageUri: String,
     @SerialName("is_receipt")
     val isReceipt: Boolean,
-    val analysis: ReceiptAnalysis?
+    val analysis: ReceiptAnalysisNetwork?
 )
